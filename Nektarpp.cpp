@@ -1,13 +1,15 @@
-#include <tinyxml2.h>
-#include "Nektarpp.h"
-#include "MeshRegion.h"
-#include <string>
-#include <cstring>
-#include <iostream>
-#include <algorithm>
-#include <cmath>
+#include"tinyxml2.h"
+#include"Nektarpp.h"
+#include"MeshRegion.h"
+#include<string>
+#include<cstring>
+#include<iostream>
+#include<algorithm>
+#include<cmath>
 
 using namespace tinyxml2;
+
+static char buffer[10000];
 
 NektarppXml::NektarppXml(std::string name, double tolerance):MeshRegion(name, tolerance) {
     m_bndCompIndexMax = -1;
@@ -15,6 +17,9 @@ NektarppXml::NektarppXml(std::string name, double tolerance):MeshRegion(name, to
 
 void NektarppXml::LoadXml(std::string name, int nlayers, std::vector<double> targz) {
     m_doc.LoadFile(name.c_str());
+    XMLElement* curvEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("CURVED");
+    m_doc.DeleteNode(curvEle);
+
     //load vertex
     const char* tagV = "V";
     XMLElement* ptsEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("VERTEX")->FirstChildElement(tagV);
@@ -26,6 +31,8 @@ void NektarppXml::LoadXml(std::string name, int nlayers, std::vector<double> tar
         p[2] = targz[round(p[2]*nlayers)];
         m_pts[id] = p;
         if(m_ptsIndexMax<id) m_ptsIndexMax = id;
+        sprintf(buffer, "%14.8lf %14.8lf %14.8lf", p[0], p[1], p[2]);
+        ptsEle->SetText(buffer);
         ptsEle = ptsEle->NextSiblingElement(tagV);
         if(ptsEle==nullptr)
         std::cout << "read pts " << m_ptsIndexMax <<  ": " << id << "[" << p[0] << ", " << p[1] << ", " << p[2] << std::endl;
@@ -129,7 +136,6 @@ void NektarppXml::extractBndPts() {
 }
 
 void NektarppXml::AddXml(NektarppXml &doc) {
-    char buffer[10000];
     //merge points
     XMLElement* ptsEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("VERTEX");
     std::map<int, int> ptsMap;
@@ -218,6 +224,8 @@ void NektarppXml::AddXml(NektarppXml &doc) {
         }
     }
     //add cells
+    std::vector<int> Rcell;
+    std::vector<int> Hcell;
     XMLElement* cellEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("ELEMENT");
     for(auto it=doc.m_cells.begin(); it!=doc.m_cells.end(); ++it) {
         std::vector<int> c = it->second;
@@ -229,10 +237,12 @@ void NektarppXml::AddXml(NektarppXml &doc) {
         if(c.size()==5) {
             tag[0] = 'R';
             sprintf(buffer, "%d %d %d %d %d", c[0], c[1], c[2], c[3], c[4]);
+            Rcell.push_back(1+m_cellIndexMax);
         }
         if(c.size()==6) {
             tag[0] = 'H';
             sprintf(buffer, "%d %d %d %d %d %d", c[0], c[1], c[2], c[3], c[4], c[5]);
+            Hcell.push_back(1+m_cellIndexMax);
         }
         XMLElement* cell = m_doc.NewElement(tag);
         XMLText* text = m_doc.NewText(buffer);
@@ -258,6 +268,25 @@ void NektarppXml::AddXml(NektarppXml &doc) {
         }
         compEle = compEle->NextSiblingElement();
     }
+    //modify composite
+    XMLElement* compEle1 = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE");
+    XMLElement* comp = m_doc.NewElement("C");
+    std::string Rlist=" R[";
+    for(int i=0; i<Rcell.size(); ++i) Rlist += std::to_string(Rcell[i]) + ",";
+    Rlist[Rlist.size()-1] = ']';
+    XMLText* text = m_doc.NewText(Rlist.c_str());
+    comp->InsertEndChild(text);
+    comp->SetAttribute("ID", "88");
+    compEle1->InsertEndChild(comp);
+    
+    XMLElement* comp1 = m_doc.NewElement("C");
+    std::string Hlist=" H[";
+    for(int i=0; i<Hcell.size(); ++i) Hlist += std::to_string(Hcell[i]) + ",";
+    Hlist[Hlist.size()-1] = ']';
+    XMLText* text1 = m_doc.NewText(Hlist.c_str());
+    comp1->InsertEndChild(text1);
+    comp1->SetAttribute("ID", "99");
+    compEle1->InsertEndChild(comp1);
 }
 
 void NektarppXml::OutXml(std::string name) {
