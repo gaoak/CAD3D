@@ -349,6 +349,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     std::vector<int> Hcell;
     addCell(doc, faceMap, Rcell, Hcell);
     //modify face composite
+    std::vector<int> cellComp;
     {
     const char* tagF = "F";
     XMLElement* compEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE")->FirstChildElement();
@@ -363,6 +364,8 @@ void NektarppXml::AddXml(NektarppXml &doc) {
             text[text.size()-1] = ']';
             text += ' ';
             compEle->SetText(text.c_str());
+        } else {
+            cellComp.push_back(id);
         }
         compEle = compEle->NextSiblingElement();
     }
@@ -397,6 +400,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     comp->InsertEndChild(text);
     comp->SetAttribute("ID", std::to_string(++m_CompIndexMax).c_str());
     compEle1->InsertEndChild(comp);
+    cellComp.push_back(m_CompIndexMax);
     }
     
     {
@@ -410,6 +414,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     comp1->InsertEndChild(text1);
     comp1->SetAttribute("ID", std::to_string(++m_CompIndexMax).c_str());
     compEle2->InsertEndChild(comp1);
+    cellComp.push_back(m_CompIndexMax);
     }
 }
 
