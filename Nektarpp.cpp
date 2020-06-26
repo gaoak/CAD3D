@@ -416,6 +416,15 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     compEle2->InsertEndChild(comp1);
     cellComp.push_back(m_CompIndexMax);
     }
+    //modify domain
+    {
+        XMLElement* domain = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("DOMAIN");
+        std::string list=" C[";
+        for(int i=0; i<cellComp.size(); ++i) list += std::to_string(cellComp[i]) + ",";
+        list[list.size()-1] = ']';
+        list += ' ';
+        domain->SetText(list.c_str());
+    }
 }
 
 void NektarppXml::OutXml(std::string name) {
