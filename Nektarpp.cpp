@@ -380,7 +380,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
         if(c.size()==0) continue;
         XMLElement* comp = m_doc.NewElement("C");
         std::string list=" F[";
-        for(auto jt=c.begin(); jt!=c.end(); ++jt) list += std::to_string(*jt) + ",";
+        for(auto jt=c.begin(); jt!=c.end(); ++jt) list += std::to_string(faceMap[*jt]) + ",";
         list[list.size()-1] = ']';
         list += ' ';
         XMLText* text = m_doc.NewText(list.c_str());
