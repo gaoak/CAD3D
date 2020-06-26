@@ -350,6 +350,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     addCell(doc, faceMap, Rcell, Hcell);
     //modify face composite
     std::vector<int> cellComp;
+    std::vector<int> extraCellComp;
     {
     const char* tagF = "F";
     XMLElement* compEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE")->FirstChildElement();
@@ -401,6 +402,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     comp->SetAttribute("ID", std::to_string(++m_CompIndexMax).c_str());
     compEle1->InsertEndChild(comp);
     cellComp.push_back(m_CompIndexMax);
+    extraCellComp.push_back(m_CompIndexMax);
     }
     
     {
@@ -415,6 +417,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     comp1->SetAttribute("ID", std::to_string(++m_CompIndexMax).c_str());
     compEle2->InsertEndChild(comp1);
     cellComp.push_back(m_CompIndexMax);
+    extraCellComp.push_back(m_CompIndexMax);
     }
     //modify domain
     {
@@ -424,6 +427,20 @@ void NektarppXml::AddXml(NektarppXml &doc) {
         list[list.size()-1] = ']';
         list += ' ';
         domain->SetText(list.c_str());
+    }
+    //modify expansion
+    {
+        const char * tag= "E";
+        XMLElement* expansion = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("DOMAIN");
+        for(int i=0;  i<extraCellComp.size(); ++i) {
+            XMLElement* exp = m_doc.NewElement(tag);
+            sprintf(buffer, "C[%d]", extraCellComp[i]);
+            exp->SetAttribute("COMPOSITE", buffer);
+            exp->SetAttribute("NUMMODES", "4");
+            exp->SetAttribute("TYPE", "MODIFIED");
+            exp->SetAttribute("FIELDS", "u");
+            expansion->InsertEndChild(exp);
+        }
     }
 }
 
