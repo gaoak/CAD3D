@@ -431,7 +431,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     //modify expansion
     {
         const char * tag= "E";
-        XMLElement* expansion = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("DOMAIN");
+        XMLElement* expansion = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("EXPANSIONS");
         for(int i=0;  i<extraCellComp.size(); ++i) {
             XMLElement* exp = m_doc.NewElement(tag);
             sprintf(buffer, "C[%d]", extraCellComp[i]);
