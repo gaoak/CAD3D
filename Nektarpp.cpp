@@ -393,7 +393,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     }
     }
     //add additional cell composite
-    {
+    if(Rcell.size()>0){
     XMLElement* compEle1 = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE");
     XMLElement* comp = m_doc.NewElement("C");
     std::string Rlist=" R[";
@@ -408,7 +408,7 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     extraCellComp.push_back(m_CompIndexMax);
     }
     
-    {
+    if(Hcell.size()>0){
     XMLElement* compEle2 = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE");
     XMLElement* comp1 = m_doc.NewElement("C");
     std::string Hlist=" H[";
