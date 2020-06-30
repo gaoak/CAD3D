@@ -377,7 +377,10 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     XMLElement* compEle1 = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE");
     for(auto it=doc.m_bndComposite.begin(); it!=doc.m_bndComposite.end(); ++it) {
         std::set<int> c = it->second;
-        if(c.size()==0) continue;
+        if(c.size()==0) {
+            std::cout << "composite " << (it->first) << " has no faces " << std::endl;
+            continue;
+        }
         XMLElement* comp = m_doc.NewElement("C");
         std::string list=" F[";
         for(auto jt=c.begin(); jt!=c.end(); ++jt) list += std::to_string(faceMap[*jt]) + ",";
