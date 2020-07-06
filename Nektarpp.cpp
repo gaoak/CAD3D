@@ -64,7 +64,7 @@ void NektarppXml::loadEdge() {
         int id = edgeEle->IntAttribute("ID");
         const char * estr = edgeEle->GetText();
         std::vector<int> e;
-        parserInt(estr, e);
+        parserUInt(estr, e);
         m_edges[id] = e;
         if(m_edgeIndexMax<id) m_edgeIndexMax = id;
         edgeEle = edgeEle->NextSiblingElement(tagE);
@@ -80,7 +80,7 @@ void NektarppXml::loadFace() {
         int id = faceEle->IntAttribute("ID");
         const char * fstr = faceEle->GetText();
         std::vector<int> f;
-        parserInt(fstr, f);
+        parserUInt(fstr, f);
         m_faces[id] = f;
         if(m_faceIndexMax<id) m_faceIndexMax = id;
         faceEle = faceEle->NextSiblingElement();
@@ -95,7 +95,7 @@ void NektarppXml::loadCell() {
         int id = cellEle->IntAttribute("ID");
         const char * cstr = cellEle->GetText();
         std::vector<int> f;
-        parserInt(cstr, f);
+        parserUInt(cstr, f);
         m_cells[id] = f;
         if(m_cellIndexMax<id) m_cellIndexMax = id;
         cellEle = cellEle->NextSiblingElement();
@@ -105,7 +105,7 @@ void NektarppXml::loadCell() {
     rebuildFacesIndex();
 }
 
-void NektarppXml::parserInt(const char * cstr, std::vector<int> & value) {
+void NektarppXml::parserUInt(const char * cstr, std::vector<int> & value) {
     value.clear();
     std::vector<int> digs;
     std::vector<int> dige;
@@ -128,8 +128,15 @@ void NektarppXml::parserInt(const char * cstr, std::vector<int> & value) {
     }
     int k;
     for(int i=0; i<digs.size(); ++i) {
-        std::string cuts(cstr+digs[i], dige[i]-digs[i]);
-        sscanf(cuts.c_str(), "%d", &k);
+        std::string cuts(cstr+digs[i], dige[i]-digs[i]);// data  in [s e-1]
+        if(sscanf(cuts.c_str(), "%d", &k)<1) {
+            std::cout << "error: parser int " << cuts << std::endl;
+        }
+        if(i>0 && (digs[i] - dige[i-1])==1 && cstr[digs[i]-1]=='-') {
+            for(int j=value[value.size()-1]+1; j<k; ++j) {
+                value.push_back(j);
+            }
+        }
         value.push_back(k);
     }
 }
@@ -161,7 +168,9 @@ void NektarppXml::parserDouble(const char * cstr, std::vector<double> & value) {
     double k;
     for(int i=0; i<digs.size(); ++i) {
         std::string cuts(cstr+digs[i], dige[i]-digs[i]);
-        sscanf(cuts.c_str(), "%lf", &k);
+        if(sscanf(cuts.c_str(), "%lf", &k)<1) {
+            std::cout << "error: parser double " << cuts << std::endl;
+        }
         value.push_back(k);
     }
 }
@@ -176,7 +185,7 @@ void NektarppXml::loadComposite() {
         if(tagF[0] == cstr[1]) {
             std::set<int> s;
             std::vector<int> face;
-            parserInt(cstr, face);
+            parserUInt(cstr, face);
             for(int i=0; i<face.size(); ++i) {
                 s.insert(face[i]);
             }
@@ -334,6 +343,107 @@ void NektarppXml::addCell(NektarppXml &doc, std::map<int, int> &faceMap, std::ve
     }
 }
 
+void NektarppXml::mergeComposite(NektarppXml &doc, std::map<int, int> &faceMap, std::vector<int> &Rcell, std::vector<int> &Hcell, std::vector<int> &domain) {
+    std::vector<std::string> facecomposite;
+    std::vector<std::string> Hcellcomposite;
+    std::vector<std::string> Rcellcomposite;
+    //collect basexml composite
+    const char* tagF = "F";
+    const char* tagH = "H";
+    const char* tagR = "R";
+    XMLElement* compEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE")->FirstChildElement();
+    while(compEle != nullptr) {
+        int id = compEle->IntAttribute("ID");
+        const char * cstr = compEle->GetText();
+        if(tagF[0] == cstr[1]) {
+            std::string list = " F[";
+            for(auto jt=m_bndComposite[id].begin(); jt!=m_bndComposite[id].end(); ++jt){
+                list += std::to_string(*jt)+",";
+            }
+            list[list.size()-1] = ']';
+            list += ' ';
+            facecomposite.push_back(list);
+        } else if(tagH[0] == cstr[1]) {
+            std::string list(cstr);
+            Hcellcomposite.push_back(list);
+        } else if(tagR[0] == cstr[1]) {
+            std::string list(cstr);
+            Rcellcomposite.push_back(list);
+        }
+        compEle = compEle->NextSiblingElement();
+    }
+    //add additional face composite
+    for(auto it=doc.m_bndComposite.begin(); it!=doc.m_bndComposite.end(); ++it) {
+        std::set<int> c = it->second;
+        if(c.size()==0) {
+            std::cout << "composite " << (it->first) << " has no face left." << std::endl;
+            continue;
+        }
+        std::string list=" F[";
+        for(auto jt=c.begin(); jt!=c.end(); ++jt) list += std::to_string(faceMap[*jt]) + ",";
+        list[list.size()-1] = ']';
+        list += ' ';
+        facecomposite.push_back(list);
+    }
+    //reorganize composite
+    XMLElement* compRoot = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE");
+    compRoot->DeleteChildren();
+    for(int i=0; i<facecomposite.size(); ++i) {
+        XMLElement* comp = m_doc.NewElement("C");
+        XMLText* text = m_doc.NewText(facecomposite[i].c_str());
+        comp->InsertEndChild(text);
+        comp->SetAttribute("ID", std::to_string(i).c_str());
+        compRoot->InsertEndChild(comp);
+    }
+    domain.clear();
+    if(Hcellcomposite.size()>0 || Hcell.size()>0) {
+        //merge base H composite
+        std::string list=" H[";
+        for(int i=0; i<Hcellcomposite.size(); ++i) {
+            int sb = Hcellcomposite[i].find('[');
+            int eb = Hcellcomposite[i].find(']');
+            if(eb > sb+1) {
+                if(list.size()>3) list += ',';
+                list += Hcellcomposite[i].substr(sb+1, eb-sb-1);
+            }
+        }
+        for(int i=0; i<Hcell.size(); ++i) {
+            if(list.size()>3) list += ',';
+            list += std::to_string(Hcell[i]);
+        }
+        list += "] ";
+        XMLElement* comp = m_doc.NewElement("C");
+        XMLText* text = m_doc.NewText(list.c_str());
+        comp->InsertEndChild(text);
+        comp->SetAttribute("ID", std::to_string(facecomposite.size()+1).c_str());
+        domain.push_back(facecomposite.size()+1);
+        compRoot->InsertEndChild(comp);
+    }
+    if(Rcellcomposite.size()>0 || Rcell.size()>0) {
+        //merge base R composite
+        std::string list=" R[";
+        for(int i=0; i<Rcellcomposite.size(); ++i) {
+            int sb = Rcellcomposite[i].find('[');
+            int eb = Rcellcomposite[i].find(']');
+            if(eb > sb+1) {
+                if(list.size()>3) list += ',';
+                list += Rcellcomposite[i].substr(sb+1, eb-sb-1);
+            }
+        }
+        for(int i=0; i<Rcell.size(); ++i) {
+            if(list.size()>3) list += ',';
+            list += std::to_string(Rcell[i]);
+        }
+        list += "] ";
+        XMLElement* comp = m_doc.NewElement("C");
+        XMLText* text = m_doc.NewText(list.c_str());
+        comp->InsertEndChild(text);
+        comp->SetAttribute("ID", std::to_string(facecomposite.size()+2).c_str());
+        domain.push_back(facecomposite.size()+2);
+        compRoot->InsertEndChild(comp);
+    }
+}
+
 void NektarppXml::AddXml(NektarppXml &doc) {
     std::map<int, int> ptsMap;
     std::map<int, int> edgeMap;
@@ -349,97 +459,27 @@ void NektarppXml::AddXml(NektarppXml &doc) {
     std::vector<int> Hcell;
     addCell(doc, faceMap, Rcell, Hcell);
     //modify face composite
-    std::vector<int> cellComp;
-    std::vector<int> extraCellComp;
-    {
-    const char* tagF = "F";
-    XMLElement* compEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE")->FirstChildElement();
-    while(compEle != nullptr) {
-        int id = compEle->IntAttribute("ID");
-        const char * cstr = compEle->GetText();
-        if(tagF[0] == cstr[1]) {
-            std::string text = " F[";
-            for(auto jt=m_bndComposite[id].begin(); jt!=m_bndComposite[id].end(); ++jt){
-                text += std::to_string(*jt)+",";
-            }
-            text[text.size()-1] = ']';
-            text += ' ';
-            compEle->SetText(text.c_str());
-        } else {
-            cellComp.push_back(id);
-        }
-        compEle = compEle->NextSiblingElement();
-    }
-    }
-    //add additional face composite
-    {
-    const char* tagF = "F";
-    XMLElement* compEle1 = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE");
-    for(auto it=doc.m_bndComposite.begin(); it!=doc.m_bndComposite.end(); ++it) {
-        std::set<int> c = it->second;
-        if(c.size()==0) {
-            std::cout << "composite " << (it->first) << " has no faces " << std::endl;
-            continue;
-        }
-        XMLElement* comp = m_doc.NewElement("C");
-        std::string list=" F[";
-        for(auto jt=c.begin(); jt!=c.end(); ++jt) list += std::to_string(faceMap[*jt]) + ",";
-        list[list.size()-1] = ']';
-        list += ' ';
-        XMLText* text = m_doc.NewText(list.c_str());
-        comp->InsertEndChild(text);
-        comp->SetAttribute("ID", std::to_string(++m_CompIndexMax).c_str());
-        compEle1->InsertEndChild(comp);
-    }
-    }
-    //add additional cell composite
-    if(Rcell.size()>0){
-    XMLElement* compEle1 = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE");
-    XMLElement* comp = m_doc.NewElement("C");
-    std::string Rlist=" R[";
-    for(int i=0; i<Rcell.size(); ++i) Rlist += std::to_string(Rcell[i]) + ",";
-    Rlist[Rlist.size()-1] = ']';
-    Rlist += ' ';
-    XMLText* text = m_doc.NewText(Rlist.c_str());
-    comp->InsertEndChild(text);
-    comp->SetAttribute("ID", std::to_string(++m_CompIndexMax).c_str());
-    compEle1->InsertEndChild(comp);
-    cellComp.push_back(m_CompIndexMax);
-    extraCellComp.push_back(m_CompIndexMax);
-    }
-    
-    if(Hcell.size()>0){
-    XMLElement* compEle2 = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE");
-    XMLElement* comp1 = m_doc.NewElement("C");
-    std::string Hlist=" H[";
-    for(int i=0; i<Hcell.size(); ++i) Hlist += std::to_string(Hcell[i]) + ",";
-    Hlist[Hlist.size()-1] = ']';
-    Hlist += ' ';
-    XMLText* text1 = m_doc.NewText(Hlist.c_str());
-    comp1->InsertEndChild(text1);
-    comp1->SetAttribute("ID", std::to_string(++m_CompIndexMax).c_str());
-    compEle2->InsertEndChild(comp1);
-    cellComp.push_back(m_CompIndexMax);
-    extraCellComp.push_back(m_CompIndexMax);
-    }
+    std::vector<int> domain;
+    mergeComposite(doc, faceMap, Rcell, Hcell, domain);
     //modify domain
     {
-        XMLElement* domain = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("DOMAIN");
+        XMLElement* domainEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("DOMAIN");
         std::string list=" C[";
-        for(int i=0; i<cellComp.size(); ++i) list += std::to_string(cellComp[i]) + ",";
+        for(int i=0; i<domain.size(); ++i) list += std::to_string(domain[i]) + ",";
         list[list.size()-1] = ']';
         list += ' ';
-        domain->SetText(list.c_str());
+        domainEle->SetText(list.c_str());
     }
     //modify expansion
     {
         const char * tag= "E";
         XMLElement* expansion = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("EXPANSIONS");
-        for(int i=0;  i<extraCellComp.size(); ++i) {
+        expansion->DeleteChildren();
+        for(int i=0;  i<domain.size(); ++i) {
             XMLElement* exp = m_doc.NewElement(tag);
-            sprintf(buffer, "C[%d]", extraCellComp[i]);
+            sprintf(buffer, "C[%d]", domain[i]);
             exp->SetAttribute("COMPOSITE", buffer);
-            exp->SetAttribute("NUMMODES", "4");
+            exp->SetAttribute("NUMMODES", "2");
             exp->SetAttribute("TYPE", "MODIFIED");
             exp->SetAttribute("FIELDS", "u");
             expansion->InsertEndChild(exp);
