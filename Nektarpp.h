@@ -8,10 +8,7 @@ class NektarppXml : public MeshRegion {
 public:
     NektarppXml(std::string name, double tolerance);
     void LoadXml(std::string name, int nlayers, std::vector<double> targz);
-    std::map<int, std::set<int> > m_bndComposite;
-    int m_CompIndexMax;
-    void extractBndPts();
-    void AddXml(NektarppXml &doc);
+    void AddMeshRegion(MeshRegion &doc);
     tinyxml2::XMLDocument m_doc;
     void OutXml(std::string name);
 private:
@@ -32,11 +29,12 @@ private:
             pos += len;
         }
     }
-    void mergePts(NektarppXml &doc, std::map<int, int> &ptsMap);
-    void mergeEdge(NektarppXml &doc, std::map<int, int> &ptsMap, std::map<int, int> &edgeMap);
-    void mergeFace(NektarppXml &doc, std::map<int, int> &edgeMap, std::map<int, int> &faceMap);
-    void addCell(NektarppXml &doc, std::map<int, int> &faceMap, std::vector<int> &Rcell, std::vector<int> &Hcell);
-    void mergeComposite(NektarppXml &doc, std::map<int, int> &faceMap, std::vector<int> &Rcell, std::vector<int> &Hcell, std::vector<int> &domain);
+    void mergePts(MeshRegion &doc, std::map<int, int> &ptsMap);
+    void mergeEdge(MeshRegion &doc, std::map<int, int> &ptsMap, std::map<int, int> &edgeMap);
+    void mergeFace(MeshRegion &doc, std::map<int, int> &edgeMap, std::map<int, int> &faceMap);
+    void addCell(MeshRegion &doc, std::map<int, int> &faceMap, std::map<int, int> &cellMap);
+    void mergeComposite(MeshRegion &doc, std::map<int, int> &faceMap, std::map<int, int> &cellMap, std::set<int> &expansion);
+    std::string printComposite(std::set<int> value);
 };
 
 #endif

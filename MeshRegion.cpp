@@ -46,3 +46,16 @@ int MeshRegion::pointIsExist(std::vector<double> p, int &pId) {
     }
     return 0;
 }
+
+void MeshRegion::extractBndPts() {
+    for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
+        std::set<int> comp = it->second;
+        for(auto jt=comp.begin(); jt!=comp.end(); ++jt) {
+            std::vector<int> f = m_faces[*jt];
+            for(int k=0; k<f.size(); ++k) {
+                m_bndPts.insert(m_edges[f[k]][0]);
+                m_bndPts.insert(m_edges[f[k]][1]);
+            }
+        }
+    }
+}
