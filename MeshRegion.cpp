@@ -67,7 +67,6 @@ void MeshRegion::outCompAsGeo(std::string name, std::vector<std::vector<double> 
     std::set<int> useedges;
     for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
         std::set<int> pts;
-        std::cout << "test 0" << std::endl;
         for(auto jt=(it->second).begin(); jt!=(it->second).end(); ++jt) {
             std::vector<int> edge  = m_faces[*jt];
             for(int k=0; k<edge.size(); ++k) {
@@ -76,7 +75,6 @@ void MeshRegion::outCompAsGeo(std::string name, std::vector<std::vector<double> 
             }
         }
         int select = 0;
-        std::cout << "test 1" << std::endl;
         for(auto jt=pts.begin(); jt!=pts.end() && select == 0; ++jt) {
             for(int n=0; n<center.size() && select == 0; ++n) {
                 if(fabs(m_pts[*jt][0]-center[n][0]) + fabs(m_pts[*jt][1]-center[n][1]) + fabs(m_pts[*jt][2]-center[n][2]) < 3.*radius[n]) {
@@ -88,6 +86,7 @@ void MeshRegion::outCompAsGeo(std::string name, std::vector<std::vector<double> 
         if(select) {
             for(auto kt=pts.begin(); kt!=pts.end(); ++kt) usepts.insert(*kt);
             for(auto jt=(it->second).begin(); jt!=(it->second).end(); ++jt) {
+                usefaces.insert(*jt);
                 std::vector<int> edge  = m_faces[*jt];
                 for(int k=0; k<edge.size(); ++k) {
                     useedges.insert(edge[k]);
@@ -104,7 +103,7 @@ void MeshRegion::outCompAsGeo(std::string name, std::vector<std::vector<double> 
     }
     for(auto it=useedges.begin(); it!=useedges.end(); ++it) {
         sprintf(buffer, "Line(%d) = {%d, %d};\n", (*it), m_edges[*it][0], m_edges[*it][1]);
-        geo << buffer ;
+        geo << buffer;
     }
     for(auto it=usefaces.begin(); it!=usefaces.end(); ++it) {
         std::vector<int> edges = m_faces[*it];

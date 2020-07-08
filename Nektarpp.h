@@ -6,8 +6,8 @@
 
 class NektarppXml : public MeshRegion {
 public:
-    NektarppXml(std::string name, double tolerance);
-    void LoadXml(std::string name, int nlayers, std::vector<double> targz);
+    NektarppXml(std::string regionname, std::string filename, double tolerance);
+    void LoadXml(int nlayers, std::vector<double> targz);
     void AddMeshRegion(MeshRegion &doc);
     tinyxml2::XMLDocument m_doc;
     void OutXml(std::string name);
