@@ -12,11 +12,16 @@ using namespace tinyxml2;
 static char buffer[10000];
 
 NektarppXml::NektarppXml(std::string name, double tolerance):MeshRegion(name, tolerance) {
+    m_doc.LoadFile(name.c_str());
 }
 
 double NektarppXml::transformz(double z, int nlayers, std::vector<double> &targz){
     int i = round(z*nlayers);
-    return targz[i];
+    if(targz.size()>i) {
+        return targz[i];
+    } else {
+        return z;
+    }
 }
 
 void NektarppXml::loadModifyPts(int nlayers, std::vector<double> targz) {
@@ -198,7 +203,6 @@ void NektarppXml::loadComposite() {
 }
 
 void NektarppXml::LoadXml(std::string name, int nlayers, std::vector<double> targz) {
-    m_doc.LoadFile(name.c_str());
     //loading and modify vertex
     loadModifyPts(nlayers, targz);
     //load edge
@@ -433,6 +437,7 @@ void NektarppXml::AddMeshRegion(MeshRegion &doc) {
             expansionEle->InsertEndChild(exp);
         }
     }
+    extractBndPts();
 }
 
 void NektarppXml::OutXml(std::string name) {

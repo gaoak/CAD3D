@@ -34,5 +34,6 @@ public:
     void rebuildEdgesIndex();
     void rebuildFacesIndex();
     void extractBndPts();
+    void outCompAsGeo(std::string name, std::vector<std::vector<double> > center, std::vector<double> radius);
 };
 #endif // MESHREGION_H
