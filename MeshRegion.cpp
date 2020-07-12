@@ -151,7 +151,6 @@ void MeshRegion::MergePts(MeshRegion &doc, std::map<int, int> &ptsMap) {
 }
 
 void MeshRegion::MergeEdge(MeshRegion &doc, std::map<int, int> &ptsMap, std::map<int, int> &edgeMap) {
-    
     for(auto it=doc.m_edges.begin(); it!=doc.m_edges.end(); ++it) {
         std::vector<int> e = it->second;
         std::set<int> es;
@@ -256,8 +255,10 @@ void MeshRegion::AddMeshRegion(MeshRegion &doc) {
     MergePts(doc, ptsMap);
     std::map<int, int> edgeMap;
     MergeEdge(doc, ptsMap, edgeMap);
+    RebuildEdgesIndex();
     std::map<int, int> faceMap;
     MergeFace(doc, edgeMap, faceMap);
+    RebuildFacesIndex();
     std::map<int, int> cellMap;
     AddCell(doc, faceMap, cellMap);
     MergeComposite(doc, faceMap, cellMap);

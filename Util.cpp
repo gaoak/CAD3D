@@ -118,7 +118,7 @@ double transformz(double z, int nlayers, std::vector<double> &targz){
     }
 }
 
-static void transform(std::vector<double> &p, double AoA) {
+void transform(std::vector<double> &p, double AoA) {
     double x = p[0], y = p[1];
     p[0] = x*cos(AoA) + y*sin(AoA);
     p[1] =-x*sin(AoA) + y*cos(AoA);

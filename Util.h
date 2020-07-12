@@ -16,5 +16,5 @@ void printVector(char * str, const char * format, std::vector<T> values) {
     }
 }
 std::string printComposite(std::set<int> value);
-
+void transform(std::vector<double> &p, double AoA);
 #endif

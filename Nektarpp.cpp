@@ -52,8 +52,7 @@ void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz) {
         printVector<double>(buffer, "%20.12e ", p);
         ptsEle->SetText(buffer);
         ptsEle = ptsEle->NextSiblingElement(tagV);
-        if(ptsEle==nullptr)
-        std::cout << "read pts " << m_ptsIndexMax <<  ": " << id << "[" << p[0] << ", " << p[1] << ", " << p[2] << std::endl;
+        if(ptsEle==nullptr) std::cout << "read pts " << m_ptsIndexMax <<  ": " << id << "[" << p[0] << ", " << p[1] << ", " << p[2] << "]" << std::endl;
     }
 }
 
@@ -86,8 +85,7 @@ void NektarppXml::LoadEdge() {
         m_edges[id] = e;
         if(m_edgeIndexMax<id) m_edgeIndexMax = id;
         edgeEle = edgeEle->NextSiblingElement(tagE);
-        if(edgeEle==nullptr)
-        std::cout << "read edge " << m_edgeIndexMax <<  ": " << id << "[" << e[0] << ", " << e[1] << std::endl;
+        if(edgeEle==nullptr) std::cout << "read edge " << m_edgeIndexMax <<  ": " << id << "[" << e[0] << ", " << e[1] << "]" << std::endl;
     }
 }
 
@@ -101,8 +99,7 @@ void NektarppXml::LoadFace() {
         m_faces[id] = f;
         if(m_faceIndexMax<id) m_faceIndexMax = id;
         faceEle = faceEle->NextSiblingElement();
-        if(faceEle==nullptr)
-        std::cout << "read face " << m_faceIndexMax <<  ": " << id << "[" << fstr << std::endl;
+        if(faceEle==nullptr) std::cout << "read face " << m_faceIndexMax <<  ": " << id << "[" << fstr << "]" << std::endl;
     }
 }
 
@@ -118,7 +115,7 @@ void NektarppXml::LoadCell() {
         if(m_cellIndexMax<id) m_cellIndexMax = id;
         cellEle = cellEle->NextSiblingElement();
         if(cellEle==nullptr)
-        std::cout << "read cell " << m_cellIndexMax <<  ": " << id << "[" << cstr << std::endl;
+        std::cout << "read cell " << m_cellIndexMax <<  ": " << id << "[" << cstr << "]" << std::endl;
     }
 }
 
@@ -153,7 +150,7 @@ void NektarppXml::UpdateXmlPts() {
         printVector<double>(buffer, "%20.12e ", p);
         XMLText* text = m_doc.NewText(buffer);
         vertex->InsertEndChild(text);
-        sprintf(buffer, "%d", m_ptsIndexMax);
+        sprintf(buffer, "%d", it->first);
         vertex->SetAttribute("ID", buffer);
         ptsRoot->InsertEndChild(vertex);
     }
@@ -168,7 +165,7 @@ void NektarppXml::UpdateXmlEdge() {
         printVector<int>(buffer, "%d ", e);
         XMLText* text = m_doc.NewText(buffer);
         edge->InsertEndChild(text);
-        sprintf(buffer, "%d", m_edgeIndexMax);
+        sprintf(buffer, "%d", it->first);
         edge->SetAttribute("ID", buffer);
         edgeRoot->InsertEndChild(edge);
     }
@@ -191,7 +188,7 @@ void NektarppXml::UpdateXmlFace() {
         printVector<int>(buffer, "%d ", f);
         XMLText* text = m_doc.NewText(buffer);
         face->InsertEndChild(text);
-        sprintf(buffer, "%d", m_faceIndexMax);
+        sprintf(buffer, "%d", it->first);
         face->SetAttribute("ID", buffer);
         faceRoot->InsertEndChild(face);
     }
@@ -209,7 +206,7 @@ void NektarppXml::UpdateXmlCell() {
         printVector<int>(buffer, "%d ", c);
         XMLText* text = m_doc.NewText(buffer);
         cell->InsertEndChild(text);
-        sprintf(buffer, "%d", m_cellIndexMax);
+        sprintf(buffer, "%d", it->first);
         cell->SetAttribute("ID", buffer);
         cellRoot->InsertEndChild(cell);
     }
@@ -270,4 +267,5 @@ void NektarppXml::UpdateXmlDomainExpansion() {
 
 void NektarppXml::OutXml(std::string name) {
     m_doc.SaveFile(name.c_str());
+    std::cout << "write xml file " << name << std::endl;
 }
