@@ -382,7 +382,7 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
     }
     m_domain.clear();
     m_domainType.clear();
-    std::vector<char> type = {'A', 'P', 'R', 'H'};
+    std::vector<char> type = {'H', 'R', 'A', 'P'};
     std::map<char, int> typemap;
     for(int i=0; i<4; ++i) {
         typemap[type[i]] = i;
@@ -398,7 +398,7 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
         for(auto it=cells.begin(); it!=cells.end(); ++it) {
             std::vector<double> c;
             GetCellCenter(*it, c);
-            if(con(c[0], c[1], c[2])>0. || i==condition.size()-1) {
+            if(i==condition.size()-1 || con(c[0], c[1], c[2])>0.) {
                 tmpset[typemap[m_cellsType[*it]]].insert(*it);
                 toclear.push_back(*it);
             }
