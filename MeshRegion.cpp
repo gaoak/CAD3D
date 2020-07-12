@@ -262,6 +262,7 @@ void MeshRegion::AddMeshRegion(MeshRegion &doc) {
     std::map<int, int> cellMap;
     AddCell(doc, faceMap, cellMap);
     MergeComposite(doc, faceMap, cellMap);
+    ExtractBndPts();
 }
 
 void MeshRegion::GetFacePts(int index, std::vector<int> & pts) {
