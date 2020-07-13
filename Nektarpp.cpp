@@ -14,14 +14,17 @@ static char buffer[10000];
 
 NektarppXml::NektarppXml(std::string filename, std::string regionname, double tolerance):MeshRegion(regionname, tolerance) {
     m_doc.LoadFile(filename.c_str());
+    m_dim = 3;
+    m_edgeTag = "EDGE";
+    m_faceTag = "FACE";
+    m_bndTye  = "F";
 }
 
 void NektarppXml::LoadXml(int nlayers, std::vector<double> targz) {
+    LoadDim();
     LoadModifyPts(nlayers, targz);
     LoadEdge();
-    RebuildEdgesIndex();
     LoadFace();
-    RebuildFacesIndex();
     LoadCell();
     LoadComposite();
     LoadModifyCurved(nlayers, targz);
@@ -37,10 +40,21 @@ void NektarppXml::UpdateXml() {
     UpdateXmlDomainExpansion();
 }
 
+void NektarppXml::LoadDim() {
+    m_dim = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->IntAttribute("DIM");
+    if(m_dim == 1) {
+        m_bndTye = "V";
+        m_edgeTag = "ELEMENT";
+    } else if(m_dim == 2) {
+        m_bndTye = "E";
+        m_faceTag = "ELEMENT";
+    } else if(m_dim == 3) {
+        m_bndTye = "F";
+    }
+}
 
 void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz) {
-    const char* tagV = "V";
-    XMLElement* ptsEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("VERTEX")->FirstChildElement(tagV);
+    XMLElement* ptsEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("VERTEX")->FirstChildElement();
     while(ptsEle != nullptr) {
         int id = ptsEle->IntAttribute("ID");
         const char * pstr = ptsEle->GetText();
@@ -51,14 +65,13 @@ void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz) {
         if(m_ptsIndexMax<id) m_ptsIndexMax = id;
         printVector<double>(buffer, "%20.12e ", p);
         ptsEle->SetText(buffer);
-        ptsEle = ptsEle->NextSiblingElement(tagV);
+        ptsEle = ptsEle->NextSiblingElement();
         if(ptsEle==nullptr) std::cout << "read pts " << m_ptsIndexMax <<  ": " << id << "[" << p[0] << ", " << p[1] << ", " << p[2] << "]" << std::endl;
     }
 }
 
 void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {
-    const char* tagE = "E";
-    XMLElement* curvEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("CURVED")->FirstChildElement(tagE);
+    XMLElement* curvEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("CURVED")->FirstChildElement();
     while(curvEle != nullptr) {
         int numbers = curvEle->IntAttribute("NUMPOINTS");
         numbers *= 3;
@@ -70,13 +83,12 @@ void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {
         }
         printVector<double>(buffer, "%20.12e ", values);
         curvEle->SetText(buffer);
-        curvEle = curvEle->NextSiblingElement(tagE);
+        curvEle = curvEle->NextSiblingElement();
     }
 }
 
 void NektarppXml::LoadEdge() {
-    const char* tagE = "E";
-    XMLElement* edgeEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("EDGE")->FirstChildElement(tagE);
+    XMLElement* edgeEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement(m_edgeTag.c_str())->FirstChildElement();
     while(edgeEle != nullptr) {
         int id = edgeEle->IntAttribute("ID");
         const char * estr = edgeEle->GetText();
@@ -84,13 +96,15 @@ void NektarppXml::LoadEdge() {
         parserUInt(estr, e);
         m_edges[id] = e;
         if(m_edgeIndexMax<id) m_edgeIndexMax = id;
-        edgeEle = edgeEle->NextSiblingElement(tagE);
+        edgeEle = edgeEle->NextSiblingElement();
         if(edgeEle==nullptr) std::cout << "read edge " << m_edgeIndexMax <<  ": " << id << "[" << e[0] << ", " << e[1] << "]" << std::endl;
     }
+    RebuildEdgesIndex();
 }
 
 void NektarppXml::LoadFace() {
-    XMLElement* faceEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("FACE")->FirstChildElement();
+    if(m_dim<2) return;
+    XMLElement* faceEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement(m_faceTag.c_str())->FirstChildElement();
     while(faceEle != nullptr) {
         int id = faceEle->IntAttribute("ID");
         const char * fstr = faceEle->GetText();
@@ -101,9 +115,11 @@ void NektarppXml::LoadFace() {
         faceEle = faceEle->NextSiblingElement();
         if(faceEle==nullptr) std::cout << "read face " << m_faceIndexMax <<  ": " << id << "[" << fstr << "]" << std::endl;
     }
+    RebuildFacesIndex();
 }
 
 void NektarppXml::LoadCell() {
+    if(m_dim<3) return;
     XMLElement* cellEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("ELEMENT")->FirstChildElement();
     while(cellEle != nullptr) {
         int id = cellEle->IntAttribute("ID");
@@ -120,7 +136,6 @@ void NektarppXml::LoadCell() {
 }
 
 void NektarppXml::LoadComposite() {
-    const char* tagF = "F";
     XMLElement* compEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("COMPOSITE")->FirstChildElement();
     while(compEle != nullptr) {
         int id = compEle->IntAttribute("ID");
@@ -131,7 +146,7 @@ void NektarppXml::LoadComposite() {
         for(int i=0; i<face.size(); ++i) {
             s.insert(face[i]);
         }
-        if(tagF[0] == cstr[1]) {
+        if(m_bndTye[0] == cstr[1]) {
             m_bndComposite[id] = s;
         } else {
             m_domain[id] = s;
@@ -157,7 +172,7 @@ void NektarppXml::UpdateXmlPts() {
 }
 
 void NektarppXml::UpdateXmlEdge() {
-    XMLElement* edgeRoot = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("EDGE");
+    XMLElement* edgeRoot = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement(m_edgeTag.c_str());
     edgeRoot->DeleteChildren();
     for(auto it=m_edges.begin(); it!=m_edges.end(); ++it) {
         std::vector<int> e = it->second;
@@ -172,7 +187,8 @@ void NektarppXml::UpdateXmlEdge() {
 }
 
 void NektarppXml::UpdateXmlFace() {
-    XMLElement* faceRoot = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("FACE");
+    if(m_dim<2) return;
+    XMLElement* faceRoot = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement(m_faceTag.c_str());
     faceRoot->DeleteChildren();
     for(auto it=m_faces.begin(); it!=m_faces.end(); ++it) {
         std::vector<int> f = it->second;
@@ -195,6 +211,7 @@ void NektarppXml::UpdateXmlFace() {
 }
 
 void NektarppXml::UpdateXmlCell() {
+    if(m_dim<3) return;
     XMLElement* cellRoot = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("ELEMENT");
     cellRoot->DeleteChildren();
     for(auto it=m_cells.begin(); it!=m_cells.end(); ++it) {
@@ -218,6 +235,7 @@ void NektarppXml::UpdateXmlComposite() {
     for(int i=0; i<m_bndComposite.size(); ++i) {
         if(m_bndComposite[i].size()==0) continue;
         std::string list = " F[";
+        list[1] = m_bndTye[0];
         for(auto jt=m_bndComposite[i].begin(); jt!=m_bndComposite[i].end(); ++jt){
             list += std::to_string(*jt)+",";
         }

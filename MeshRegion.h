@@ -15,15 +15,19 @@ public:
     void RebuildEdgesIndex();
     void RebuildFacesIndex();
     void ExtractBndPts();
-    void OutCompAsGeo(std::string name, std::vector<std::vector<double> > center, std::vector<double> radius);
+    void OutCompAsGeo3D(std::string name, std::vector<std::vector<double> > center, std::vector<double> radius);
     void AddMeshRegion(MeshRegion &doc);
     void GetCellCenter(int i, std::vector<double> & c);
-    void GetFacePts(int index, std::vector<int> & pts);
+    void GetEdgePts(int index, std::vector<int> & pts, char &type);
+    void GetFacePts(int index, std::vector<int> & pts, char &type);
     void GetCellPts(int index, std::vector<int> & pts, char &type);
+    void GetElementPts(int index, std::vector<int> & pts, char &type);
     void ReorgDomain(std::vector<void*> condition);
+    void OutPutSu2(std::string name);
     
     double m_tolerance;
     std::string m_name;
+    int m_dim;
     std::map<int, std::vector<double> > m_pts;
     std::map<int, std::vector<int   > > m_edges;
     std::map<int, std::vector<int   > > m_faces;

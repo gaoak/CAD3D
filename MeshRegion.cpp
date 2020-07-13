@@ -51,19 +51,42 @@ int MeshRegion::PointIsExist(std::vector<double> p, int &pId) {
 
 void MeshRegion::ExtractBndPts() {
     m_bndPts.clear();
-    for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
-        std::set<int> comp = it->second;
-        for(auto jt=comp.begin(); jt!=comp.end(); ++jt) {
-            std::vector<int> f = m_faces[*jt];
-            for(int k=0; k<f.size(); ++k) {
-                m_bndPts.insert(m_edges[f[k]][0]);
-                m_bndPts.insert(m_edges[f[k]][1]);
+    switch(m_dim) {
+    case 3:
+        for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
+            std::set<int> comp = it->second;
+            for(auto jt=comp.begin(); jt!=comp.end(); ++jt) {
+                std::vector<int> f = m_faces[*jt];
+                for(int k=0; k<f.size(); ++k) {
+                    m_bndPts.insert(m_edges[f[k]][0]);
+                    m_bndPts.insert(m_edges[f[k]][1]);
+                }
             }
         }
+        break;
+    case 2:
+        for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
+            std::set<int> comp = it->second;
+            for(auto jt=comp.begin(); jt!=comp.end(); ++jt) {
+                m_bndPts.insert(m_edges[*jt][0]);
+                m_bndPts.insert(m_edges[*jt][1]);
+            }
+        }
+        break;
+    case 1:
+        for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
+            std::set<int> comp = it->second;
+            for(auto jt=comp.begin(); jt!=comp.end(); ++jt) {
+                m_bndPts.insert(*jt);
+            }
+        }
+        break;
+    default:
+        std::cout << "error: unsupported dimension " << m_dim << std::endl;
     }
 }
 
-void MeshRegion::OutCompAsGeo(std::string name, std::vector<std::vector<double> > center, std::vector<double> radius) {
+void MeshRegion::OutCompAsGeo3D(std::string name, std::vector<std::vector<double> > center, std::vector<double> radius) {
     std::set<int> usefaces;
     std::set<int> usepts;
     std::set<int> useedges;
@@ -138,11 +161,26 @@ void MeshRegion::OutCompAsGeo(std::string name, std::vector<std::vector<double> 
 }
 
 void MeshRegion::MergePts(MeshRegion &doc, std::map<int, int> &ptsMap) {
+    ptsMap.clear();
     for(auto it=doc.m_pts.begin(); it!=doc.m_pts.end(); ++it) {
         std::vector<double> p = it->second;
         int pId;
         if(PointIsExist(p, pId)) {
             ptsMap[it->first] = pId;
+            if(m_dim == 1) {
+                for(auto jt=m_bndComposite.begin(); jt!=m_bndComposite.end(); ++jt) {
+                    std::set<int> comp = jt->second;
+                    if(comp.find(pId)!=comp.end()) {
+                        (jt->second).erase(pId);
+                    }
+                }
+                for(auto jt=doc.m_bndComposite.begin(); jt!=doc.m_bndComposite.end(); ++jt) {
+                    std::set<int> comp = jt->second;
+                    if(comp.find(it->first)!=comp.end()) {
+                        (jt->second).erase(it->first);
+                    }
+                }
+            }
         } else {
             ptsMap[it->first] = ++m_ptsIndexMax;
             m_pts[m_ptsIndexMax] = p;
@@ -151,6 +189,7 @@ void MeshRegion::MergePts(MeshRegion &doc, std::map<int, int> &ptsMap) {
 }
 
 void MeshRegion::MergeEdge(MeshRegion &doc, std::map<int, int> &ptsMap, std::map<int, int> &edgeMap) {
+    edgeMap.clear();
     for(auto it=doc.m_edges.begin(); it!=doc.m_edges.end(); ++it) {
         std::vector<int> e = it->second;
         std::set<int> es;
@@ -160,6 +199,20 @@ void MeshRegion::MergeEdge(MeshRegion &doc, std::map<int, int> &ptsMap, std::map
         }
         if(m_edgesIndex.find(es) != m_edgesIndex.end()) {
             edgeMap[it->first] = m_edgesIndex[es];
+            if(m_dim == 2) {
+                for(auto jt=m_bndComposite.begin(); jt!=m_bndComposite.end(); ++jt) {
+                    std::set<int> comp = jt->second;
+                    if(comp.find(m_edgesIndex[es])!=comp.end()) {
+                        (jt->second).erase(m_edgesIndex[es]);
+                    }
+                }
+                for(auto jt=doc.m_bndComposite.begin(); jt!=doc.m_bndComposite.end(); ++jt) {
+                    std::set<int> comp = jt->second;
+                    if(comp.find(it->first)!=comp.end()) {
+                        (jt->second).erase(it->first);
+                    }
+                }
+            }
         } else {
             edgeMap[it->first] = ++m_edgeIndexMax;
             m_edges[m_edgeIndexMax] = e;
@@ -168,6 +221,7 @@ void MeshRegion::MergeEdge(MeshRegion &doc, std::map<int, int> &ptsMap, std::map
 }
 
 void MeshRegion::MergeFace(MeshRegion &doc, std::map<int, int> &edgeMap, std::map<int, int> &faceMap) {
+    faceMap.clear();
     for(auto it=doc.m_faces.begin(); it!=doc.m_faces.end(); ++it) {
         std::vector<int> f = it->second;
         std::set<int> fs;
@@ -177,16 +231,18 @@ void MeshRegion::MergeFace(MeshRegion &doc, std::map<int, int> &edgeMap, std::ma
         }
         if(m_facesIndex.find(fs)!=m_facesIndex.end()) {
             faceMap[it->first] = m_facesIndex[fs];
-            for(auto jt=m_bndComposite.begin(); jt!=m_bndComposite.end(); ++jt) {
-                std::set<int> comp = jt->second;
-                if(comp.find(m_facesIndex[fs])!=comp.end()) {
-                    (jt->second).erase(m_facesIndex[fs]);
+            if(m_dim == 3) {
+                for(auto jt=m_bndComposite.begin(); jt!=m_bndComposite.end(); ++jt) {
+                    std::set<int> comp = jt->second;
+                    if(comp.find(m_facesIndex[fs])!=comp.end()) {
+                        (jt->second).erase(m_facesIndex[fs]);
+                    }
                 }
-            }
-            for(auto jt=doc.m_bndComposite.begin(); jt!=doc.m_bndComposite.end(); ++jt) {
-                std::set<int> comp = jt->second;
-                if(comp.find(it->first)!=comp.end()) {
-                    (jt->second).erase(it->first);
+                for(auto jt=doc.m_bndComposite.begin(); jt!=doc.m_bndComposite.end(); ++jt) {
+                    std::set<int> comp = jt->second;
+                    if(comp.find(it->first)!=comp.end()) {
+                        (jt->second).erase(it->first);
+                    }
                 }
             }
         } else {
@@ -197,6 +253,7 @@ void MeshRegion::MergeFace(MeshRegion &doc, std::map<int, int> &edgeMap, std::ma
 }
 
 void MeshRegion::AddCell(MeshRegion &doc, std::map<int, int> &faceMap, std::map<int, int> &cellMap) {
+    cellMap.clear();
     for(auto it=doc.m_cells.begin(); it!=doc.m_cells.end(); ++it) {
         std::vector<int> c = it->second;
         for(int i=0; i<c.size(); ++i) {
@@ -265,12 +322,42 @@ void MeshRegion::AddMeshRegion(MeshRegion &doc) {
     ExtractBndPts();
 }
 
-void MeshRegion::GetFacePts(int index, std::vector<int> & pts) {
+void MeshRegion::GetElementPts(int index, std::vector<int> & pts, char &type) {
+    switch(m_dim) {
+    case 1:
+        GetEdgePts(index, pts, type);
+        break;
+    case 2:
+        GetFacePts(index, pts, type);
+        break;
+    case 3:
+        GetCellPts(index, pts, type);
+        break;
+    default:
+        std::cout << "error: dimension " << m_dim << " not supported." << std::endl;
+    }
+}
+
+void MeshRegion::GetEdgePts(int index, std::vector<int> & pts, char &type) {
     pts.clear();
+    type = 0;
+    if(m_edges.find(index) == m_edges.end()) {
+        return;
+    }
+    pts.push_back(m_edges[index][0]);
+    pts.push_back(m_edges[index][1]);
+    type = 'S';
+}
+
+void MeshRegion::GetFacePts(int index, std::vector<int> & pts, char &type) {
+    pts.clear();
+    type = 0;
     if(m_faces.find(index) == m_faces.end()) {
         return;
     }
     int ne = m_faces[index].size();
+    if(ne==3) type = 'T';
+    if(ne==4) type = 'Q';
     for(int i=0; i<ne; ++i) {
         int e0 = m_faces[index][ i      ];
         int e1 = m_faces[index][(i+1)%ne];
@@ -291,6 +378,7 @@ void MeshRegion::GetCellPts(int index, std::vector<int> & pts, char &type) {
     type = m_cellsType[index];
     std::vector<int> cell = m_cells[index];
     int ne = cell.size();
+    char bottype;
     if(type == 'R' || type == 'H') {
         std::vector<int> bot;
         for(int i=0; i<ne; ++i) {
@@ -300,9 +388,9 @@ void MeshRegion::GetCellPts(int index, std::vector<int> & pts, char &type) {
             bot.push_back(cell[0]);
             bot.push_back(cell[5]);
         }
-        GetFacePts(bot[0], pts);
+        GetFacePts(bot[0], pts, bottype);
         std::vector<int> p1;
-        GetFacePts(bot[1], p1);
+        GetFacePts(bot[1], p1, bottype);
         for(int i=0; i<p1.size(); ++i) {
             for(int j=0; j<p1.size(); ++j) {
                 std::set<int> es;
@@ -326,9 +414,9 @@ void MeshRegion::GetCellPts(int index, std::vector<int> & pts, char &type) {
             }
         }
         
-        GetFacePts(bot[0], pts);
+        GetFacePts(bot[0], pts, bottype);
         std::vector<int> p1;
-        GetFacePts(bot[1], p1);
+        GetFacePts(bot[1], p1, bottype);
         for(int i=0; i<p1.size(); ++i) {
             int j=0;
             for(; j<pts.size(); ++j) {
@@ -379,14 +467,28 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
     void * alwaysTrue;
     condition.push_back(alwaysTrue);
     std::set<int> cells;
-    for(auto it=m_cells.begin(); it!=m_cells.end(); ++it) {
-        cells.insert(it->first);
+    switch(m_dim) {
+    case 3:
+        for(auto it=m_cells.begin(); it!=m_cells.end(); ++it) {
+            cells.insert(it->first);
+        }
+        break;
+    case 2:
+        for(auto it=m_faces.begin(); it!=m_faces.end(); ++it) {
+            cells.insert(it->first);
+        }
+        break;
+    case 1:
+        for(auto it=m_edges.begin(); it!=m_edges.end(); ++it) {
+            cells.insert(it->first);
+        }
+        break;
     }
     m_domain.clear();
     m_domainType.clear();
-    std::vector<char> type = {'H', 'R', 'A', 'P'};
+    std::vector<char> type = {'H', 'R', 'A', 'P', 'Q', 'T', 'S'};
     std::map<char, int> typemap;
-    for(int i=0; i<4; ++i) {
+    for(int i=0; i<type.size(); ++i) {
         typemap[type[i]] = i;
     }
     for(int i=0; i<condition.size(); ++i) {
@@ -400,7 +502,7 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
         for(auto it=cells.begin(); it!=cells.end(); ++it) {
             std::vector<int> pts;
             char type;
-            GetCellPts(*it, pts, type);
+            GetElementPts(*it, pts, type);
             for(int j=0; j<pts.size(); ++j) {
                 std::vector<double> c = m_pts[pts[j]];
                 if(i==condition.size()-1 || con(c[0], c[1], c[2])>0.) {
@@ -410,7 +512,7 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
                 }
             }
         }
-        for(int j=0; j<4; ++j) {
+        for(int j=0; j<type.size(); ++j) {
             if(tmpset[j].size()>0) {
                 m_domain[index+j] = tmpset[j];
                 m_domainType[index+j] = type[j];

@@ -15,6 +15,7 @@ public:
     
     tinyxml2::XMLDocument m_doc;
 protected:
+    void LoadDim();
     void LoadModifyPts(int nlayers, std::vector<double> targz);
     void LoadEdge();
     void LoadFace();
@@ -25,6 +26,10 @@ protected:
     void UpdateXmlEdge();
     void UpdateXmlFace();
     void UpdateXmlCell();
+
+    std::string m_edgeTag;
+    std::string m_faceTag;
+    std::string m_bndTye;
 };
 
 #endif
