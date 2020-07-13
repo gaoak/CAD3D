@@ -8,8 +8,7 @@
 #include<map>
 #include<set>
 #include<cfloat>
-MeshRegion::MeshRegion(std::string name, double tolerance)
-{
+MeshRegion::MeshRegion(std::string name, double tolerance) {
     m_name = name;
     m_tolerance = tolerance;
     m_ptsIndexMax = -1;
@@ -18,7 +17,7 @@ MeshRegion::MeshRegion(std::string name, double tolerance)
     m_cellIndexMax = -1;
 }
 
-void MeshRegion::RebuildEdgesIndex(){
+void MeshRegion::RebuildEdgesIndex() {
     m_edgesIndex.clear();
     for(auto it=m_edges.begin(); it!=m_edges.end(); ++it) {
         std::set<int> p;
@@ -28,7 +27,7 @@ void MeshRegion::RebuildEdgesIndex(){
     }
 }
 
-void MeshRegion::RebuildFacesIndex(){
+void MeshRegion::RebuildFacesIndex() {
     m_facesIndex.clear();
     for(auto it=m_faces.begin(); it!=m_faces.end(); ++it) {
         std::set<int> p;
@@ -483,6 +482,8 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
             cells.insert(it->first);
         }
         break;
+    default:
+        std::cout << "error: dimension " << m_dim << " not supported." << std::endl;
     }
     m_domain.clear();
     m_domainType.clear();
@@ -493,10 +494,7 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
     }
     for(int i=0; i<condition.size(); ++i) {
         std::vector<std::set<int> > tmpset;
-        tmpset.push_back(std::set<int>());
-        tmpset.push_back(std::set<int>());
-        tmpset.push_back(std::set<int>());
-        tmpset.push_back(std::set<int>());
+        for(int j=0; j<type.size(); ++j) tmpset.push_back(std::set<int>());
         std::vector<int> toclear;
         double(*con)(double, double, double) = (double(*)(double, double, double))condition[i];
         for(auto it=cells.begin(); it!=cells.end(); ++it) {
