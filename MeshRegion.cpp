@@ -499,12 +499,12 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
         double(*con)(double, double, double) = (double(*)(double, double, double))condition[i];
         for(auto it=cells.begin(); it!=cells.end(); ++it) {
             std::vector<int> pts;
-            char type;
-            GetElementPts(*it, pts, type);
+            char elementtype;
+            GetElementPts(*it, pts, elementtype);
             for(int j=0; j<pts.size(); ++j) {
                 std::vector<double> c = m_pts[pts[j]];
                 if(i==condition.size()-1 || con(c[0], c[1], c[2])>0.) {
-                    tmpset[typemap[m_cellsType[*it]]].insert(*it);
+                    tmpset[typemap[elementtype]].insert(*it);
                     toclear.push_back(*it);
                     break;
                 }
