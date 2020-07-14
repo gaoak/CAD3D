@@ -15,6 +15,9 @@ MeshRegion::MeshRegion(std::string name, double tolerance) {
     m_edgeIndexMax = -1;
     m_faceIndexMax = -1;
     m_cellIndexMax = -1;
+    for(int i=0; i<ElementTag.size(); ++i) {
+        ElementTypeMap[ElementTag[i]] = i;
+    }
 }
 
 void MeshRegion::RebuildEdgesIndex() {
@@ -337,6 +340,46 @@ void MeshRegion::GetElementPts(int index, std::vector<int> & pts, char &type) {
     }
 }
 
+void MeshRegion::GetBndElementPts(int index, std::vector<int> & pts, char &type) {
+    switch(m_dim) {
+    case 1:
+        GetPts(index, pts, type);
+        break;
+    case 2:
+        GetEdgePts(index, pts, type);
+        break;
+    case 3:
+        GetFacePts(index, pts, type);
+        break;
+    default:
+        std::cout << "error: dimension " << m_dim << " not supported." << std::endl;
+    }
+}
+
+void MeshRegion::GetElements(std::map<int, std::vector<int   > > & elements) {
+    switch(m_dim) {
+    case 1:
+        elements = m_edges;
+        break;
+    case 2:
+        elements = m_faces;
+        break;
+    case 3:
+        elements = m_cells;
+        break;
+    }
+}
+
+void MeshRegion::GetPts(int index, std::vector<int> & pts, char &type) {
+    pts.clear();
+    type = 0;
+    if(m_pts.find(index) == m_pts.end()) {
+        return;
+    }
+    pts.push_back(index);
+    type = ElementTag[ePoint];
+}
+
 void MeshRegion::GetEdgePts(int index, std::vector<int> & pts, char &type) {
     pts.clear();
     type = 0;
@@ -345,7 +388,7 @@ void MeshRegion::GetEdgePts(int index, std::vector<int> & pts, char &type) {
     }
     pts.push_back(m_edges[index][0]);
     pts.push_back(m_edges[index][1]);
-    type = 'S';
+    type = ElementTag[eSegment];
 }
 
 void MeshRegion::GetFacePts(int index, std::vector<int> & pts, char &type) {
@@ -355,8 +398,8 @@ void MeshRegion::GetFacePts(int index, std::vector<int> & pts, char &type) {
         return;
     }
     int ne = m_faces[index].size();
-    if(ne==3) type = 'T';
-    if(ne==4) type = 'Q';
+    if(ne==3) type = ElementTag[eTriangle];
+    if(ne==4) type = ElementTag[eQuadrilateral];
     for(int i=0; i<ne; ++i) {
         int e0 = m_faces[index][ i      ];
         int e1 = m_faces[index][(i+1)%ne];
@@ -378,7 +421,7 @@ void MeshRegion::GetCellPts(int index, std::vector<int> & pts, char &type) {
     std::vector<int> cell = m_cells[index];
     int ne = cell.size();
     char bottype;
-    if(type == 'R' || type == 'H') {
+    if(type == ElementTag[ePrism] || type == ElementTag[eHexahedron]) {
         std::vector<int> bot;
         for(int i=0; i<ne; ++i) {
             if(m_faces[cell[i]].size()==3) bot.push_back(cell[i]);
@@ -401,8 +444,7 @@ void MeshRegion::GetCellPts(int index, std::vector<int> & pts, char &type) {
                 }
             }
         }
-        
-    } else if(type == 'A' || type == 'P') {
+    } else if(type == ElementTag[eTetrahedron] || type == ElementTag[ePyramid]) {
         std::vector<int> bot(2);
         bot[0] = cell[0];
         bot[1] = cell[1];
@@ -487,33 +529,28 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
     }
     m_domain.clear();
     m_domainType.clear();
-    std::vector<char> type = {'H', 'R', 'A', 'P', 'Q', 'T', 'S'};
-    std::map<char, int> typemap;
-    for(int i=0; i<type.size(); ++i) {
-        typemap[type[i]] = i;
-    }
     for(int i=0; i<condition.size(); ++i) {
         std::vector<std::set<int> > tmpset;
-        for(int j=0; j<type.size(); ++j) tmpset.push_back(std::set<int>());
+        for(int j=0; j<ElementTag.size(); ++j) tmpset.push_back(std::set<int>());
         std::vector<int> toclear;
         double(*con)(double, double, double) = (double(*)(double, double, double))condition[i];
         for(auto it=cells.begin(); it!=cells.end(); ++it) {
             std::vector<int> pts;
-            char elementtype;
-            GetElementPts(*it, pts, elementtype);
+            char type;
+            GetElementPts(*it, pts, type);
             for(int j=0; j<pts.size(); ++j) {
                 std::vector<double> c = m_pts[pts[j]];
                 if(i==condition.size()-1 || con(c[0], c[1], c[2])>0.) {
-                    tmpset[typemap[elementtype]].insert(*it);
+                    tmpset[ElementTypeMap[type]].insert(*it);
                     toclear.push_back(*it);
                     break;
                 }
             }
         }
-        for(int j=0; j<type.size(); ++j) {
+        for(int j=0; j<ElementTag.size(); ++j) {
             if(tmpset[j].size()>0) {
                 m_domain[index+j] = tmpset[j];
-                m_domainType[index+j] = type[j];
+                m_domainType[index+j] = ElementTag[j];
             }
         }
         index += 10;
@@ -521,4 +558,40 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
             cells.erase(toclear[j]);
         }
     }
+}
+
+void MeshRegion::OutPutSU2(std::string name) {
+    std::ofstream su2(name.c_str());
+    su2 << "NDIME= " << m_dim << std::endl;
+    su2 << "NPOIN= " << m_pts.size() << std::endl;
+    for(auto it = m_pts.begin(); it!=m_pts.end(); ++it) {
+        su2 << std::setprecision(12);
+        for(int i=0; i<m_dim; ++i) {
+            su2 << std::setw(20) << (it->second)[i] << " ";
+        }
+        su2 << std::endl;
+    }
+    std::map<int, std::vector<int   > > elements;
+    GetElements(elements);
+    su2 << "NELEM= " << elements.size() << std::endl;
+    for(auto it=elements.begin(); it!=elements.end(); ++it) {
+        std::vector<int> pts;
+        char type;
+        GetElementPts(it->first, pts, type);
+        su2 << ElementSU2[ElementTypeMap[type]] << " ";
+        for(int j=0; j<pts.size(); ++j) su2 << pts[j] << " ";
+        su2 << std::endl;
+    }
+    su2 << "NMARK= " << m_bndComposite.size() << std::endl;
+    for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
+        su2 << "MARKER_TAG= C" << it->first << std::endl;
+        su2 << "MARKER_ELEMS= " << m_bndComposite[it->first].size() << std::endl;
+        std::vector<int> pts;
+        char type;
+        GetBndElementPts(it->first, pts, type);
+        su2 << ElementSU2[ElementTypeMap[type]] << " ";
+        for(int j=0; j<pts.size(); ++j) su2 << pts[j] << " ";
+        su2 << std::endl;
+    }
+    su2.close();
 }

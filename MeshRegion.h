@@ -18,12 +18,15 @@ public:
     void OutCompAsGeo3D(std::string name, std::vector<std::vector<double> > center, std::vector<double> radius);
     void AddMeshRegion(MeshRegion &doc);
     void GetCellCenter(int i, std::vector<double> & c);
+    void GetPts(int index, std::vector<int> & pts, char &type);
     void GetEdgePts(int index, std::vector<int> & pts, char &type);
     void GetFacePts(int index, std::vector<int> & pts, char &type);
     void GetCellPts(int index, std::vector<int> & pts, char &type);
     void GetElementPts(int index, std::vector<int> & pts, char &type);
+    void GetBndElementPts(int index, std::vector<int> & pts, char &type);
     void ReorgDomain(std::vector<void*> condition);
-    void OutPutSu2(std::string name);
+    void OutPutSU2(std::string name);
+    void GetElements(std::map<int, std::vector<int   > > & elements);
     
     double m_tolerance;
     std::string m_name;
@@ -40,6 +43,20 @@ public:
     std::map<int, std::set<int> > m_bndComposite;
     std::map<int, std::set<int> > m_domain;
     std::map<int, char > m_domainType;
+    
+    enum ElementType {
+        eHexahedron,
+        ePrism,
+        eTetrahedron,
+        ePyramid,
+        eQuadrilateral,
+        eTriangle,
+        eSegment,
+        ePoint
+    };
+    std::vector<char> ElementTag = {'H', 'R', 'A', 'P', 'Q', 'T', 'S', 'V'};
+    std::vector<int>  ElementSU2 = { 12,  13,  10,  14,   9,   5,   3,   0};
+    std::map<char, int> ElementTypeMap;
 
 protected:
     void MergePts(MeshRegion &doc, std::map<int, int> &ptsMap);
