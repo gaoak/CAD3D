@@ -255,6 +255,7 @@ void NektarppXml::UpdateXmlComposite() {
         comp->InsertEndChild(text);
         comp->SetAttribute("ID", std::to_string(it->first).c_str());
         compRoot->InsertEndChild(comp);
+        std::cout << "composite " << it->first << ", has elements number " << (it->second).size() << std::endl;
     }
 }
 
