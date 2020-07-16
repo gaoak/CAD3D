@@ -584,7 +584,7 @@ void MeshRegion::OutPutSU2(std::string name) {
     su2 << "NDIME= " << m_dim << std::endl;
     su2 << "NPOIN= " << m_pts.size() << std::endl;
     for(auto it = m_pts.begin(); it!=m_pts.end(); ++it) {
-        su2 << std::setprecision(12);
+        su2 << std::setprecision(12) << std::scientific;
         for(int i=0; i<m_dim; ++i) {
             su2 << std::setw(20) << (it->second)[i] << " ";
         }
@@ -605,12 +605,14 @@ void MeshRegion::OutPutSU2(std::string name) {
     for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
         su2 << "MARKER_TAG= C" << it->first << std::endl;
         su2 << "MARKER_ELEMS= " << m_bndComposite[it->first].size() << std::endl;
-        std::vector<int> pts;
-        char type;
-        GetBndElementPts(it->first, pts, type);
-        su2 << ElementSU2[ElementTypeMap[type]] << " ";
-        for(int j=0; j<pts.size(); ++j) su2 << pts[j] << " ";
-        su2 << std::endl;
+        for(auto jt=m_bndComposite[it->first].begin(); jt!=m_bndComposite[it->first].end(); ++jt) {
+            std::vector<int> pts;
+            char type;
+            GetBndElementPts(*jt, pts, type);
+            su2 << ElementSU2[ElementTypeMap[type]] << " ";
+            for(int j=0; j<pts.size(); ++j) su2 << pts[j] << " ";
+            su2 << std::endl;
+        }
     }
     su2.close();
 }
