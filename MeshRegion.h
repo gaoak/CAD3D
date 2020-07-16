@@ -64,9 +64,12 @@ protected:
     void MergeFace(MeshRegion &doc, std::map<int, int> &edgeMap, std::map<int, int> &faceMap);
     void AddCell(MeshRegion &doc, std::map<int, int> &faceMap, std::map<int, int> &cellMap);
     void MergeComposite(MeshRegion &doc, std::map<int, int> &faceMap, std::map<int, int> &cellMap);
-    
+    int PointHash(std::vector<double> p);
+    void InsertBndPts(int index);
+    std::vector<double> m_minRange;
+    std::vector<double> m_maxRange;
     std::map<std::set<int>, int> m_edgesIndex;
     std::map<std::set<int>, int> m_facesIndex;
-    std::set<int> m_bndPts;
+    std::map<int, std::set<int> > m_bndPts;
 };
 #endif // MESHREGION_H

@@ -19,6 +19,8 @@ MeshRegion::MeshRegion(std::string name, double tolerance) {
     for(int i=0; i<ElementTag.size(); ++i) {
         ElementTypeMap[ElementTag[i]] = i;
     }
+    m_minRange = std::vector<double>(3, 1E100);
+    m_maxRange = std::vector<double>(3,-1E100);
 }
 
 void MeshRegion::RebuildEdgesIndex() {
@@ -43,13 +45,29 @@ void MeshRegion::RebuildFacesIndex() {
 }
 
 int MeshRegion::PointIsExist(std::vector<double> p, int &pId) {
-    for(auto it = m_bndPts.begin(); it!=m_bndPts.end(); ++it) {
-        pId = *it;
-        if((fabs(m_pts[pId][0] - p[0]) + fabs(m_pts[pId][1] - p[1]) + fabs(m_pts[pId][2] - p[2]))/3.<m_tolerance) {
-            return 1;
+    int index = PointHash(p);
+    for(int i=index-1; i<=index+1; ++i) {
+        if(m_bndPts.find(i) != m_bndPts.end()) {
+            for(auto it = m_bndPts[i].begin(); it!=m_bndPts[i].end(); ++it) {
+                pId = *it;
+                if((fabs(m_pts[pId][0] - p[0]) + fabs(m_pts[pId][1] - p[1]) + fabs(m_pts[pId][2] - p[2]))/3.<m_tolerance) {
+                    return 1;
+                }
+            }
         }
     }
     return 0;
+}
+
+void MeshRegion::InsertBndPts(int index) {
+    if(m_pts.find(index) == m_pts.end()) return;
+    std::vector<double> p = m_pts[index];
+    int hash = PointHash(p);
+    if(m_bndPts.find(hash) == m_bndPts.end()) {
+        std::set<int> ts;
+        m_bndPts[hash] = ts;
+    }
+    m_bndPts[hash].insert(index);
 }
 
 void MeshRegion::ExtractBndPts() {
@@ -61,8 +79,8 @@ void MeshRegion::ExtractBndPts() {
             for(auto jt=comp.begin(); jt!=comp.end(); ++jt) {
                 std::vector<int> f = m_faces[*jt];
                 for(int k=0; k<f.size(); ++k) {
-                    m_bndPts.insert(m_edges[f[k]][0]);
-                    m_bndPts.insert(m_edges[f[k]][1]);
+                    InsertBndPts(m_edges[f[k]][0]);
+                    InsertBndPts(m_edges[f[k]][1]);
                 }
             }
         }
@@ -71,8 +89,8 @@ void MeshRegion::ExtractBndPts() {
         for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
             std::set<int> comp = it->second;
             for(auto jt=comp.begin(); jt!=comp.end(); ++jt) {
-                m_bndPts.insert(m_edges[*jt][0]);
-                m_bndPts.insert(m_edges[*jt][1]);
+                InsertBndPts(m_edges[*jt][0]);
+                InsertBndPts(m_edges[*jt][1]);
             }
         }
         break;
@@ -80,7 +98,7 @@ void MeshRegion::ExtractBndPts() {
         for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
             std::set<int> comp = it->second;
             for(auto jt=comp.begin(); jt!=comp.end(); ++jt) {
-                m_bndPts.insert(*jt);
+                InsertBndPts(*jt);
             }
         }
         break;
@@ -595,4 +613,14 @@ void MeshRegion::OutPutSU2(std::string name) {
         su2 << std::endl;
     }
     su2.close();
+}
+
+int MeshRegion::PointHash(std::vector<double> p) {
+    double dres = 0., nscatered = 1000.;
+    for(int i=0; i<m_dim; ++i) {
+        double len = m_maxRange[i] - m_minRange[i];
+        if(len<m_tolerance) len = 1.;
+        dres = dres + nscatered*(p[i] - m_minRange[i])/len;
+    }
+    return round(dres);
 }

@@ -61,6 +61,10 @@ void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz) {
         std::vector<double> p;
         parserDouble(pstr, p);
         p[2] = transformz(p[2], nlayers, targz);
+        for(int i=0; i<p.size(); ++i) {
+            if(m_minRange[i]>p[i]) m_minRange[i] = p[i];
+            if(m_maxRange[i]<p[i]) m_maxRange[i] = p[i];
+        }
         m_pts[id] = p;
         if(m_ptsIndexMax<id) m_ptsIndexMax = id;
         printVector<double>(buffer, "%20.12e ", p);
