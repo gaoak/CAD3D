@@ -616,7 +616,7 @@ void MeshRegion::OutPutSU2(std::string name) {
 }
 
 int MeshRegion::PointHash(std::vector<double> p) {
-    double dres = 0., nscatered = 1000.;
+    double dres = 0., nscatered = 100000.;
     for(int i=0; i<m_dim; ++i) {
         double len = m_maxRange[i] - m_minRange[i];
         if(len<m_tolerance) len = 1.;
