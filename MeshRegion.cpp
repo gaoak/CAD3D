@@ -615,6 +615,7 @@ void MeshRegion::OutPutSU2(std::string name) {
         }
     }
     su2.close();
+    std::cout << "write file " << name << std::endl;
 }
 
 int MeshRegion::PointHash(std::vector<double> p) {
