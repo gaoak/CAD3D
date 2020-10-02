@@ -430,6 +430,67 @@ void MeshRegion::GetFacePts(int index, std::vector<int> & pts, char &type) {
     }
 }
 
+void MeshRegion::GetFaceUnitNorm(int index, std::vector<double> & norm, char &type) {
+    norm = std::vector<double>(3, 0.);
+    if(m_dim<=2) {
+        norm[2] = 1.;
+        return;
+    }
+    std::vector<int> pts;
+    GetFacePts(index, pts, type);
+    std::vector<double> t1(3);
+    std::vector<double> t2(3);
+    for(int i=0; i<3; ++i) {
+        t1[i] = m_pts[pts[1]][i] - m_pts[pts[0]][i];
+        t2[i] = m_pts[pts[2]][i] - m_pts[pts[1]][i];
+    }
+    norm[0] = t1[1]*t2[2] - t1[2]*t1[1];
+    norm[1] = t1[2]*t2[0] - t1[0]*t2[2];
+    norm[2] = t1[0]*t2[1] - t1[1]*t2[0];
+    double l = sqrt(norm[0]*norm[0] + norm[1]*norm[1] + norm[2]*norm[2]);
+    for(int i=0; i<3; ++i) {
+        norm[i] /= l;
+    }
+}
+
+void MeshRegion::GetFaceEdges(int index, std::vector<int> & edges, char &type) {
+    edges.clear();
+    type = 0;
+    if(m_faces.find(index) == m_faces.end()) {
+        return;
+    }
+    int ne = m_faces[index].size();
+    if(ne==3) type = ElementTag[eTriangle];
+    if(ne==4) type = ElementTag[eQuadrilateral];
+    for(int i=0; i<ne; ++i) {
+        int e0 = m_faces[index][i];
+        edges.push_back(e0);
+    }
+}
+
+void MeshRegion::GetCellEdges(int index, std::vector<int> & edges, char &type) {
+    edges.clear();
+    type = 0;
+    if(m_cells.find(index) == m_cells.end()) {
+        return;
+    }
+    type = m_cellsType[index];
+    std::vector<int> cell = m_cells[index];
+    int ne = cell.size();
+    std::set<int> edgeset;
+    std::vector<int> faceedges;
+    char bottype;
+    for(int i=0; i<ne; ++i) {
+        GetFaceEdges(cell[i], faceedges, bottype);
+        for(int j=0; j<faceedges.size(); ++j) {
+            edgeset.insert(faceedges[j]);
+        }
+    }
+    for(auto it=edgeset.begin(); it!=edgeset.end(); ++it) {
+        edges.push_back(*it);
+    }
+}
+
 void MeshRegion::GetCellPts(int index, std::vector<int> & pts, char &type) {
     pts.clear();
     type = 0;
@@ -515,7 +576,54 @@ void MeshRegion::GetCellCenter(int index, std::vector<double> & c) {
     }
 }
 
-void MeshRegion::ReorgDomain(std::vector<void*> condition) {
+int MeshRegion::FindSingularElements(double angle) {
+    m_singularElements.clear();
+    if(m_dim<3) return 0;
+    double cang = cos(angle);
+    std::map<int, int> singularEdge;
+    char type;
+    std::vector<int> edges;
+    for(auto comp = m_bndComposite.begin(); comp!=m_bndComposite.end(); ++comp) {
+        for(auto face=comp->second.begin(); face!=comp->second.end(); ++face) {
+            GetFaceEdges(*face, edges, type);
+            for(auto edge=edges.begin(); edge!=edges.end(); ++edge){
+                if(singularEdge.find(*edge)==singularEdge.end()) {
+                    singularEdge[*edge] = *face;
+                } else {
+                    std::vector<double> n1(3), n2(3);
+                    GetFaceUnitNorm(*face, n1, type);
+                    GetFaceUnitNorm(singularEdge[*edge], n2, type);
+                    double a = fabs(n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2]);
+                    if(a>cang) {
+                        singularEdge.erase(*edge);
+                    }
+                }
+            }
+        }
+    }
+    std::set<int> singularPts;
+    std::vector<int> pts;
+    for(auto edge=singularEdge.begin(); edge!=singularEdge.end(); ++edge) {
+        GetEdgePts(edge->first, pts, type);
+        for(auto it=pts.begin(); it!=pts.end(); ++it) {
+            singularPts.insert(*it);
+        }
+    }
+    for(auto ele=m_cells.begin(); ele!=m_cells.end(); ++ele) {
+        GetCellPts(ele->first, pts, type);
+        for(auto it=pts.begin(); it!=pts.end(); ++it) {
+            if(singularPts.find(*it)!=singularPts.end()) {
+                m_singularElements.insert(ele->first);
+            }
+        }
+    }
+    return 0;
+}
+
+void MeshRegion::ReorgDomain(std::vector<void*> condition, bool detectSingular) {
+    if(detectSingular) {
+        FindSingularElements(20./180.*3.1415926);
+    }
     int index = 0;
     for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
         if(index<it->first) index = it->first;
@@ -560,6 +668,9 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
             for(int j=0; j<pts.size(); ++j) {
                 std::vector<double> c = m_pts[pts[j]];
                 if(i==condition.size()-1 || con(c[0], c[1], c[2])>0.) {
+                    if(detectSingular && i==0 && m_singularElements.find(*it)==m_singularElements.end()) {
+                        break;
+                    }
                     tmpset[ElementTypeMap[type]].insert(*it);
                     toclear.push_back(*it);
                     break;
@@ -572,6 +683,7 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition) {
                 m_domainType[index+j] = ElementTag[j];
             }
         }
+        if(toclear.size() ==0) continue;
         index += 10;
         for(int j=0; j<toclear.size(); ++j) {
             cells.erase(toclear[j]);

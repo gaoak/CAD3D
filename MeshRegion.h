@@ -21,10 +21,13 @@ public:
     void GetPts(int index, std::vector<int> & pts, char &type);
     void GetEdgePts(int index, std::vector<int> & pts, char &type);
     void GetFacePts(int index, std::vector<int> & pts, char &type);
+    void GetFaceEdges(int index, std::vector<int> & edges, char &type);
+    void GetFaceUnitNorm(int index, std::vector<double> & norm, char &type);
     void GetCellPts(int index, std::vector<int> & pts, char &type);
+    void GetCellEdges(int index, std::vector<int> & edges, char &type);
     void GetElementPts(int index, std::vector<int> & pts, char &type);
     void GetBndElementPts(int index, std::vector<int> & pts, char &type);
-    void ReorgDomain(std::vector<void*> condition);
+    void ReorgDomain(std::vector<void*> condition, bool detectSingular);
     void OutPutSU2(std::string name);
     void GetElements(std::map<int, std::vector<int   > > & elements);
     
@@ -43,6 +46,7 @@ public:
     std::map<int, std::set<int> > m_bndComposite;
     std::map<int, std::set<int> > m_domain;
     std::map<int, char > m_domainType;
+    std::set<int> m_singularElements;
     
     enum ElementType {
         eHexahedron,
@@ -66,6 +70,7 @@ protected:
     void MergeComposite(MeshRegion &doc, std::map<int, int> &faceMap, std::map<int, int> &cellMap);
     int PointHash(std::vector<double> p);
     void InsertBndPts(int index);
+    int FindSingularElements(double angle);
     std::vector<double> m_minRange;
     std::vector<double> m_maxRange;
     std::map<std::set<int>, int> m_edgesIndex;
