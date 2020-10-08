@@ -609,6 +609,10 @@ int MeshRegion::FindSingularElements(double angle) {
             singularPts.insert(*it);
         }
     }
+    printf("detect singularity at points:\n");
+    for(auto it=singularPts.begin(); it!=singularPts.end(); ++it) {
+        printf("(%12.6f, %12.6f, %12.6f)\n", m_pts[*it][0], m_pts[*it][1], m_pts[*it][2]);
+    }
     for(auto ele=m_cells.begin(); ele!=m_cells.end(); ++ele) {
         GetCellPts(ele->first, pts, type);
         for(auto it=pts.begin(); it!=pts.end(); ++it) {
