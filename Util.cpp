@@ -109,10 +109,13 @@ void parserUInt(const char * cstr, std::vector<int> & value) {
     }
 }
 
-double transformz(double z, int nlayers, std::vector<double> &targz){
+double transformz(double z, int nlayers, std::vector<double> &targz, double offset0, double offset1){
     int i = round(z*nlayers);
     if(targz.size()>i) {
-        return targz[i];
+        double off = 0.;
+        if(i==0) off = -offset0;
+        if(i==nlayers) off = offset1;
+        return targz[i] + off;
     } else {
         return z;
     }

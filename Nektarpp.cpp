@@ -5,6 +5,7 @@
 #include<string>
 #include<cstring>
 #include<iostream>
+#include<fstream>
 #include<algorithm>
 #include<cmath>
 
@@ -20,9 +21,9 @@ NektarppXml::NektarppXml(std::string filename, std::string regionname, double to
     m_bndTye  = "F";
 }
 
-void NektarppXml::LoadXml(int nlayers, std::vector<double> targz) {
+void NektarppXml::LoadXml(int nlayers, std::vector<double> targz, double offset0, double offset1, bool mapping, int exclude) {
     LoadDim();
-    LoadModifyPts(nlayers, targz);
+    LoadModifyPts(nlayers, targz, offset0, offset1, mapping, exclude);
     LoadEdge();
     LoadFace();
     LoadCell();
@@ -53,14 +54,23 @@ void NektarppXml::LoadDim() {
     }
 }
 
-void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz) {
+void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz, double offset0, double offset1, bool mapping, int exclude) {
     XMLElement* ptsEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("VERTEX")->FirstChildElement();
     while(ptsEle != nullptr) {
         int id = ptsEle->IntAttribute("ID");
         const char * pstr = ptsEle->GetText();
         std::vector<double> p;
         parserDouble(pstr, p);
-        p[2] = transformz(p[2], nlayers, targz);
+        int idw;
+        if(IsWallpoint(p, idw)) {
+            if(mapping && round(p[2]*nlayers)!=exclude) {
+                p[0] = m_wallpoints[m_wallmapping[idw]][0];
+                p[1] = m_wallpoints[m_wallmapping[idw]][1];
+            }
+            p[2] = transformz(p[2], nlayers, targz, 0., 0.);
+        } else {
+            p[2] = transformz(p[2], nlayers, targz, offset0, offset1);
+        }
         for(int i=0; i<p.size(); ++i) {
             if(m_minRange[i]>p[i]) m_minRange[i] = p[i];
             if(m_maxRange[i]<p[i]) m_maxRange[i] = p[i];
@@ -72,6 +82,29 @@ void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz) {
         ptsEle = ptsEle->NextSiblingElement();
         if(ptsEle==nullptr) std::cout << "read pts " << m_ptsIndexMax <<  ": " << id << "[" << p[0] << ", " << p[1] << ", " << p[2] << "]" << std::endl;
     }
+}
+
+void NektarppXml::LoadWallmapping(std::string filename) {
+    std::ifstream ifile(filename.c_str());
+    int N, dim;
+    ifile >> N >> dim;
+    for(int i=0; i<N; ++i) {
+        std::vector<double> p0(2), p1(2);
+        ifile >> p0[0] >> p0[1];
+        ifile >> p1[0] >> p1[1];
+        m_wallpoints.push_back(p0);
+        m_wallmapping[m_wallpoints.size()-1] = m_wallpoints.size();
+        m_wallpoints.push_back(p1);
+    }
+}
+
+bool NektarppXml::IsWallpoint(std::vector<double> &p, int &id) {
+    for(id=0; id<m_wallpoints.size(); id+=2) {
+        if(fabs(m_wallpoints[id][0] - p[0]) + fabs(m_wallpoints[id][1] - p[1]) < m_tolerance) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {

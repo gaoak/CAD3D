@@ -444,7 +444,7 @@ void MeshRegion::GetFaceUnitNorm(int index, std::vector<double> & norm, char &ty
         t1[i] = m_pts[pts[1]][i] - m_pts[pts[0]][i];
         t2[i] = m_pts[pts[2]][i] - m_pts[pts[1]][i];
     }
-    norm[0] = t1[1]*t2[2] - t1[2]*t1[1];
+    norm[0] = t1[1]*t2[2] - t1[2]*t2[1];
     norm[1] = t1[2]*t2[0] - t1[0]*t2[2];
     norm[2] = t1[0]*t2[1] - t1[1]*t2[0];
     double l = sqrt(norm[0]*norm[0] + norm[1]*norm[1] + norm[2]*norm[2]);
@@ -627,7 +627,7 @@ int MeshRegion::FindSingularElements(double angle) {
 
 void MeshRegion::ReorgDomain(std::vector<void*> condition, bool detectSingular) {
     if(detectSingular) {
-        FindSingularElements(20./180.*3.1415926);
+        FindSingularElements(80./180.*3.1415926);
     }
     int index = 0;
     for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {

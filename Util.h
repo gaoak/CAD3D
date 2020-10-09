@@ -4,7 +4,7 @@
 #include<string>
 #include<set>
 
-double transformz(double z, int nlayers, std::vector<double> &targz);
+double transformz(double z, int nlayers, std::vector<double> &targz, double offset0 = 0., double offset1 = 0.);
 void parserUInt(const char * cstr, std::vector<int> & value);
 void parserDouble(const char * cstr, std::vector<double> & value);
 template<typename T>
