@@ -30,6 +30,8 @@ public:
     void ReorgDomain(std::vector<void*> condition, bool detectSingular);
     void OutPutSU2(std::string name);
     void GetElements(std::map<int, std::vector<int   > > & elements);
+    void ReorgBoundary(double angle = 75./180.*3.1415926);
+    void CheckMesh(double angle = 75./180.*3.1415926);
     
     double m_tolerance;
     std::string m_name;
@@ -47,6 +49,9 @@ public:
     std::map<int, std::set<int> > m_domain;
     std::map<int, char > m_domainType;
     std::set<int> m_singularElements;
+    std::set<int> m_singularEdge;
+    std::set<int> m_singularPts;
+    std::set<int> m_singularFace;
     
     enum ElementType {
         eHexahedron,
@@ -70,7 +75,8 @@ protected:
     void MergeComposite(MeshRegion &doc, std::map<int, int> &faceMap, std::map<int, int> &cellMap);
     int PointHash(std::vector<double> p);
     void InsertBndPts(int index);
-    int FindSingularElements(double angle);
+    int FindSingularElements(double angle = 75./180.*3.1415926);
+    int FindSharedSingluarEdges(std::set<int> &bnd1, std::set<int> &bnd2, int &shared, int &singular);
     std::vector<double> m_minRange;
     std::vector<double> m_maxRange;
     std::map<std::set<int>, int> m_edgesIndex;

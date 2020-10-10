@@ -578,6 +578,9 @@ void MeshRegion::GetCellCenter(int index, std::vector<double> & c) {
 
 int MeshRegion::FindSingularElements(double angle) {
     m_singularElements.clear();
+    m_singularFace.clear();
+    m_singularEdge.clear();
+    m_singularPts.clear();
     if(m_dim<3) return 0;
     double cang = cos(angle);
     std::map<int, int> singularEdge;
@@ -596,28 +599,31 @@ int MeshRegion::FindSingularElements(double angle) {
                     double a = fabs(n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2]);
                     if(a>cang) {
                         singularEdge.erase(*edge);
+                    } else {
+                        m_singularFace.insert(*face);
+                        m_singularFace.insert(singularEdge[*edge]);
                     }
                 }
             }
         }
     }
-    std::set<int> singularPts;
     std::vector<int> pts;
     for(auto edge=singularEdge.begin(); edge!=singularEdge.end(); ++edge) {
+        m_singularEdge.insert(edge->first);
         GetEdgePts(edge->first, pts, type);
         for(auto it=pts.begin(); it!=pts.end(); ++it) {
-            singularPts.insert(*it);
+            m_singularPts.insert(*it);
         }
     }
     std::ofstream singularfile("singular.dat");
     singularfile << "variables = x, y, z" << std::endl;
-    for(auto it=singularPts.begin(); it!=singularPts.end(); ++it) {
+    for(auto it=m_singularPts.begin(); it!=m_singularPts.end(); ++it) {
         singularfile << m_pts[*it][0] << " " << m_pts[*it][1] << " " << m_pts[*it][2] << std::endl;
     }
     for(auto ele=m_cells.begin(); ele!=m_cells.end(); ++ele) {
         GetCellPts(ele->first, pts, type);
         for(auto it=pts.begin(); it!=pts.end(); ++it) {
-            if(singularPts.find(*it)!=singularPts.end()) {
+            if(m_singularPts.find(*it)!=m_singularPts.end()) {
                 m_singularElements.insert(ele->first);
             }
         }
@@ -627,7 +633,7 @@ int MeshRegion::FindSingularElements(double angle) {
 
 void MeshRegion::ReorgDomain(std::vector<void*> condition, bool detectSingular) {
     if(detectSingular) {
-        FindSingularElements(80./180.*3.1415926);
+        FindSingularElements();
     }
     int index = 0;
     for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
@@ -694,6 +700,131 @@ void MeshRegion::ReorgDomain(std::vector<void*> condition, bool detectSingular) 
             cells.erase(toclear[j]);
         }
     }
+}
+
+int MeshRegion::FindSharedSingluarEdges(std::set<int> &bnd1, std::set<int> &bnd2, int &shared, int &singular) {
+    shared = 0;
+    singular = 0;
+    double nsface = 0;
+    if(bnd1.empty() || bnd2.empty()) return nsface;
+    std::set<int> edge1, edge2;
+    char type;
+    std::vector<int> edges;
+    for(auto it=bnd1.begin(); it!=bnd1.end(); ++it) {
+        GetFaceEdges(*it, edges, type);
+        for(auto e=edges.begin(); e!=edges.end(); ++e) {
+            edge1.insert(*e);
+        }
+    }
+    for(auto it=bnd2.begin(); it!=bnd2.end(); ++it) {
+        GetFaceEdges(*it, edges, type);
+        for(auto e=edges.begin(); e!=edges.end(); ++e) {
+            edge2.insert(*e);
+        }
+    }
+    for(auto it=edge2.begin(); it!=edge2.end(); ++it) {
+        if(edge1.find(*it)!=edge1.end()) {
+            ++shared;
+            if(m_singularEdge.find(*it)!=m_singularEdge.end()) {
+                ++singular;
+            }
+        }
+    }
+    for(auto it=bnd2.begin(); it!=bnd2.end(); ++it) {
+        if(bnd1.find(*it)!=bnd1.end()) {
+            ++nsface;
+        }
+    }
+    return nsface;
+}
+
+void MeshRegion::ReorgBoundary(double angle) {
+    FindSingularElements(angle);
+    std::vector<std::set<int>> bndComposite;
+    std::vector<int> bndId;
+    for(auto bnd=m_bndComposite.begin(); bnd!=m_bndComposite.end(); ++bnd) {
+        bndId.push_back(bnd->first);
+        bndComposite.push_back(bnd->second);
+    }
+    for(int i=0; i<bndComposite.size()-1; ++i) {
+        for(int j=i+1; j<bndComposite.size(); ++j) {
+            int shared = 0, singluar = 0;
+            if(FindSharedSingluarEdges(bndComposite[i], bndComposite[j], shared, singluar)) {
+                std::cout << "error: bnd composits [" << bndId[i] << "] and [" << bndId[j] << "] has shared faces\n";
+            }
+            if(shared>0 && singluar==0) {
+                for(auto it=bndComposite[j].begin(); it!=bndComposite[j].end(); ++it) {
+                    bndComposite[i].insert(*it);
+                }
+                bndComposite[j].clear();
+            }
+        }
+    }
+    m_bndComposite.clear();
+    for(int i = 0; i<bndComposite.size(); ++i) {
+        if(bndComposite[i].size()>0) {
+            m_bndComposite[bndId[i]] = bndComposite[i];
+        }
+    }
+}
+
+void MeshRegion::CheckMesh(double angle) {
+    //check points
+    std::map<int, int> ptsc;
+    for(auto it=m_edges.begin(); it!=m_edges.end(); ++it) {
+        std::vector<int> e = it->second;
+        ptsc[e[0]] += 1;
+        ptsc[e[1]] += 1;
+    }
+    for(auto it=ptsc.begin(); it!=ptsc.end(); ++it) {
+        if(it->second==1) {
+            std::cout << "error: isolate point found (" << m_pts[it->first][0] << ","
+            << m_pts[it->first][1] << "," << m_pts[it->first][2] << ")\n";
+        }
+    }
+    //check edge
+    std::map<int, int> edgec;
+    char type;
+    std::vector<int> edges;
+    for(auto it=m_faces.begin(); it!=m_faces.end(); ++it) {
+        GetFaceEdges(it->first, edges, type);
+        for(auto e=edges.begin(); e!=edges.end(); ++e) {
+            edgec[*e] += 1;
+        }
+    }
+    for(auto it=edgec.begin(); it!=edgec.end(); ++it) {
+        if(it->second == 1) {
+            std::cout << "error: isolate edge found edge[" << it->first << "]\n";
+        }
+    }
+    //check boundary definition
+    std::set<int> bndf;
+    for(auto it=m_bndComposite.begin(); it!=m_bndComposite.end(); ++it) {
+        std::set<int> faces = it->second;
+        for(auto f=faces.begin(); f!=faces.end(); ++f) {
+            bndf.insert(*f);
+        }
+    }
+    std::map<int, int> facec;
+    for(auto it=m_cells.begin(); it!=m_cells.end(); ++it) {
+        std::vector<int> faces = it->second;
+        for(auto f=faces.begin(); f!=faces.end(); ++f) {
+            facec[*f] += 1;
+        }
+    }
+    for(auto it=facec.begin(); it!=facec.end(); ++it) {
+        if(it->second==1) {
+            if(bndf.find(it->first)==bndf.end()) {
+                std::cout << "error: undefined boundary face[" << it->first << "]\n";
+            } else {
+                bndf.erase(it->first);
+            }
+        }
+    }
+    for(auto it=bndf.begin(); it!=bndf.end(); ++it) {
+        std::cout << "error: boundary face [" << *it << "] is inner face\n";
+    }
+    std::cout << "mesh check finished " << m_name << std::endl;
 }
 
 void MeshRegion::OutPutSU2(std::string name) {
