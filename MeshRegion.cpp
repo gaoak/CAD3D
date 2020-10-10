@@ -761,9 +761,10 @@ void MeshRegion::ReorgBoundary(double angle) {
         }
     }
     m_bndComposite.clear();
+    int index = 0;
     for(int i = 0; i<bndComposite.size(); ++i) {
         if(bndComposite[i].size()>0) {
-            m_bndComposite[bndId[i]] = bndComposite[i];
+            m_bndComposite[index++] = bndComposite[i];
         }
     }
 }
