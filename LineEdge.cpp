@@ -121,7 +121,7 @@ double LineEdge::BuildDiscretes(double ds0, double ds1) {
         for(int i=1; i<=m_nBLayers1; ++i) {
             m_discretes[m_N - i] = m_discretes[m_N - i + 1] - ds;
             ds *= m_q1;
-            if(ds > (1. + m_discretes[m_N - i])/(m_N - i)) {
+            if(ds > (m_discretes[m_N - i] - m_discretes[m_nBLayers0])/(m_N - i)) {
                 m_nBLayers1 = i;
                 break;
             }
@@ -134,7 +134,37 @@ double LineEdge::BuildDiscretes(double ds0, double ds1) {
         for(int i=m_nBLayers0 + 1;i<m_N - m_nBLayers1;++i) {
             m_discretes[i] = m_discretes[i-1] + ds;
         }
+    } else if(m_refineType == BOUNDARYLAYER4) {
+        m_discretes = std::vector<double>(m_N+1, -1.);
+        m_discretes[m_N] = 1.;
+        ds = ds1;
+        for(int i=1; i<=m_nBLayers1; ++i) {
+            m_discretes[m_N - i] = m_discretes[m_N - i + 1] - ds;
+            ds *= m_q1;
+            if(ds > (m_discretes[m_N - i] + 1.)/(m_N - i)) {
+                m_nBLayers1 = i;
+                break;
+            }
+        }
+        ds = ds0;
+        for(int i=1; i<=m_nBLayers0; ++i) {
+            m_discretes[i] = m_discretes[i-1] + ds;
+            ds *= m_q0;
+            if(ds > (m_discretes[m_N - m_nBLayers1] - m_discretes[i])/(m_N - i)) {
+                m_nBLayers0 = i;
+                break;
+            }
+        }
+        ds = (m_discretes[m_N - m_nBLayers1] - m_discretes[m_nBLayers0])
+            /(m_N - m_nBLayers0 - m_nBLayers1);
+        if(ds <= 0) {
+            std::cout << "error: unsupported BL refine type for edge number [r] " << m_N << std::endl;
+        }
+        for(int i=m_nBLayers0 + 1;i<m_N - m_nBLayers1;++i) {
+            m_discretes[i] = m_discretes[i-1] + ds;
+        }
     }
+    return 0.;
 }
 
 double LineEdge::DiscreteStretch(double s, double h0, double h1) {
@@ -184,7 +214,8 @@ std::vector<double> LineEdge::Evaluate(double s) {
     }
     if(m_refineType == BOUNDARYLAYER0
     || m_refineType == BOUNDARYLAYER1
-    || m_refineType == BOUNDARYLAYER2) {
+    || m_refineType == BOUNDARYLAYER2
+    || m_refineType == BOUNDARYLAYER4) {
         s = DiscreteStretch(s, m_g0*2., m_g1*2.);
     }
     for(int i=0; i<2; ++i) {
@@ -202,7 +233,7 @@ LineEdge::LineEdge(double* p0, double* p1, int N, int refineType,
     m_refineType = refineType;
     if((BOUNDARYLAYER0 == refineType && (q0 < 1. || N <= NBlayers0))
     || (BOUNDARYLAYER1 == refineType && (q1 < 1. || N <= NBlayers1))
-    || (BOUNDARYLAYER2 == refineType && (q0 < 1. || q1 < 1. || N <= NBlayers0 + NBlayers1))) {
+    ||((BOUNDARYLAYER2 == refineType || BOUNDARYLAYER4 == refineType) && (q0 < 1. || q1 < 1. || N <= NBlayers0 + NBlayers1))) {
         std::cout << "error: unsupported BL refine type for edge number " << N << std::endl;
     }
     m_h0 = h0;
@@ -212,3 +243,24 @@ LineEdge::LineEdge(double* p0, double* p1, int N, int refineType,
     m_nBLayers0 = NBlayers0;
     m_nBLayers1 = NBlayers1;
 }
+
+// int main()
+// {
+//     double pts[2][2];
+//     pts[0][0] = -1.;
+//     pts[0][1] = 0.;
+//     pts[1][0] = 1.;
+//     pts[1][1] = 0.;
+//     int N=10;
+//     double ds = 2./N;
+//     LineEdge Cedge2(pts[0], pts[1], N , BOUNDARYLAYER2, 0.1, 2. , 4,  0.2, 1., 2);
+//     LineEdge Cedge3(pts[1], pts[0], N , BOUNDARYLAYER4, 0.2, 1., 2,  0.1, 2. , 4);
+//     for(int i=0; i<=N; ++i) {
+//         printf("%lf ", Cedge2.Evaluate(ds*i-1.)[0]);
+//     }
+//     printf("\n");
+//     for(int i=N; i>=0; --i) {
+//         printf("%lf ", Cedge3.Evaluate(ds*i-1.)[0]);
+//     }
+//     printf("\n");
+// }

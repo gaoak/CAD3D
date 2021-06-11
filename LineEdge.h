@@ -11,9 +11,10 @@
 #define SINREFINE2 4
 #define QUDREFINE0 5
 #define QUDREFINE1 6
-#define BOUNDARYLAYER0 7
+#define BOUNDARYLAYER0 7 
 #define BOUNDARYLAYER1 8
 #define BOUNDARYLAYER2 9
+#define BOUNDARYLAYER4 10
 
 class LineEdge {
 public: 
