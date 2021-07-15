@@ -116,9 +116,35 @@ void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {
         std::vector<double> values;
         parserDouble(cstr, values);
         for(int i=0; i<numbers; ++i) {
-            if((i+1)%3==0) values[i] = transformz(values[i], nlayers, targz);;
+            if((i+1)%3==0) values[i] = transformz(values[i], nlayers, targz);
         }
-        printVector<double>(buffer, "%20.12e ", values);
+        printVector<double>(buffer, "%26.18e ", values);
+        curvEle->SetText(buffer);
+        curvEle = curvEle->NextSiblingElement();
+    }
+}
+
+void NektarppXml::DeformPts(void *func) {
+    LoadModifyCurved(func);
+    void(*mapfunc)(double *) = (void(*)(double *))func;
+    for( auto &p : m_pts) {
+        mapfunc(&(p.second[0]));
+    }
+}
+
+void NektarppXml::LoadModifyCurved(void* func) {
+    void(*mapfunc)(double *) = (void(*)(double *))func;
+    XMLElement* curvEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("CURVED")->FirstChildElement();
+    while(curvEle != nullptr) {
+        int numbers = curvEle->IntAttribute("NUMPOINTS");
+        numbers *= 3;
+        const char * cstr = curvEle->GetText();
+        std::vector<double> values;
+        parserDouble(cstr, values);
+        for(int i=0; i<numbers; ++i) {
+            if(i%3==0) mapfunc(&(values[i]));
+        }
+        printVector<double>(buffer, "%26.18e ", values);
         curvEle->SetText(buffer);
         curvEle = curvEle->NextSiblingElement();
     }

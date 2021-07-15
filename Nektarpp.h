@@ -13,6 +13,7 @@ public:
     void UpdateXmlComposite();
     void UpdateXmlDomainExpansion();
     void LoadWallmapping(std::string filename);
+    void DeformPts(void *func);
     tinyxml2::XMLDocument m_doc;
 protected:
     void LoadDim();
@@ -22,6 +23,7 @@ protected:
     void LoadCell();
     void LoadComposite();
     void LoadModifyCurved(int nlayers, std::vector<double> targz);
+    void LoadModifyCurved(void* func);
     void UpdateXmlPts();
     void UpdateXmlEdge();
     void UpdateXmlFace();
