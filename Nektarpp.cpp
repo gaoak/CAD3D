@@ -327,6 +327,7 @@ void NektarppXml::UpdateXmlDomainExpansion() {
     for(auto it=m_domain.begin(); it!=m_domain.end(); ++it) domain.insert(it->first);
     {
         XMLElement* domainEle = m_doc.FirstChildElement("NEKTAR")->FirstChildElement("GEOMETRY")->FirstChildElement("DOMAIN");
+        domainEle->DeleteChildren();
         std::string list=" C" + printComposite(domain) + " ";
         domainEle->SetText(list.c_str());
     }
