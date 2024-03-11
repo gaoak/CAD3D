@@ -31,7 +31,7 @@ public:
   void ReorgDomain(std::vector<void *> condition, bool detectSingular);
   void OutPutSU2(std::string name);
   void GetElements(std::map<int, std::vector<int>> &elements);
-  void ReorgBoundary(double angle = 75. / 180. * 3.1415926);
+  bool ReorgBoundary(double angle = 75. / 180. * 3.1415926);
   void CheckMesh(double angle = 75. / 180. * 3.1415926);
 
   double m_tolerance;

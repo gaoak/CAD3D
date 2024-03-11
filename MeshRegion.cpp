@@ -789,7 +789,8 @@ int MeshRegion::FindSharedSingluarEdges(std::set<int> &bnd1,
   return nsface;
 }
 // (< angle) (cos > cos angle) no sigular
-void MeshRegion::ReorgBoundary(double angle) {
+bool MeshRegion::ReorgBoundary(double angle) {
+  bool flag = false;
   FindSingularElements(angle);
   std::vector<std::set<int>> bndComposite;
   std::vector<int> bndId;
@@ -811,6 +812,7 @@ void MeshRegion::ReorgBoundary(double angle) {
           bndComposite[i].insert(*it);
         }
         bndComposite[j].clear();
+        flag = true;
       }
     }
   }
@@ -821,6 +823,7 @@ void MeshRegion::ReorgBoundary(double angle) {
       m_bndComposite[index++] = bndComposite[i];
     }
   }
+  return flag;
 }
 
 void MeshRegion::CheckMesh(double angle) {
