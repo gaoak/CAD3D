@@ -377,7 +377,6 @@ void NektarppXml::UpdateXmlComposite() {
   }
   for (auto it = m_domain.begin(); it != m_domain.end(); ++it) {
     std::string list = " H" + printComposite(it->second) + " ";
-    ;
     list[1] = m_domainType[it->first];
     XMLElement *comp = m_doc.NewElement("C");
     XMLText *text = m_doc.NewText(list.c_str());
