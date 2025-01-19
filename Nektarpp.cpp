@@ -26,6 +26,7 @@ NektarppXml::NektarppXml(std::string filename, std::string regionname,
 void NektarppXml::LoadXml(int nlayers, std::vector<double> targz,
                           double offset0, double offset1, bool mapping,
                           int exclude) {
+  std::cout << "Reading mesh " << m_name << std::endl;
   LoadDim();
   LoadModifyPts(nlayers, targz, offset0, offset1, mapping, exclude);
   LoadEdge();
@@ -162,6 +163,7 @@ void NektarppXml::DeformPts(void *func) {
   for (auto &p : m_pts) {
     mapfunc(&(p.second[0]));
   }
+  ExtractBndPts();
 }
 
 void NektarppXml::LoadModifyCurved(void *func) {

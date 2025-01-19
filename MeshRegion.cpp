@@ -358,6 +358,7 @@ void MeshRegion::MergeComposite(MeshRegion &doc, std::map<int, int> &faceMap,
 }
 
 void MeshRegion::AddMeshRegion(MeshRegion &doc) {
+  m_name = m_name + doc.m_name;
   std::map<int, int> ptsMap;
   MergePts(doc, ptsMap);
   std::map<int, int> edgeMap;
