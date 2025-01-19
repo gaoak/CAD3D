@@ -78,7 +78,11 @@ void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz,
         p[0] = m_wallpoints[m_wallmapping[idw]][0];
         p[1] = m_wallpoints[m_wallmapping[idw]][1];
       }
-      p[2] = transformz(p[2], nlayers, targz, 0., 0.);
+      if (m_wallpoints[0].size() == 2) {
+        p[2] = transformz(p[2], nlayers, targz, 0., 0.);
+      } else {
+        p[2] = m_wallpoints[m_wallmapping[idw]][2];
+      }
     } else {
       p[2] = transformz(p[2], nlayers, targz, offset0, offset1);
     }
@@ -105,9 +109,13 @@ void NektarppXml::LoadWallmapping(std::string filename) {
   int N, dim;
   ifile >> N >> dim;
   for (int i = 0; i < N; ++i) {
-    std::vector<double> p0(2), p1(2);
+    std::vector<double> p0(dim), p1(dim);
     ifile >> p0[0] >> p0[1];
+    if (dim == 3)
+      ifile >> p0[2];
     ifile >> p1[0] >> p1[1];
+    if (dim == 3)
+      ifile >> p1[2];
     m_wallpoints.push_back(p0);
     m_wallmapping[m_wallpoints.size() - 1] = m_wallpoints.size();
     m_wallpoints.push_back(p1);
@@ -116,7 +124,10 @@ void NektarppXml::LoadWallmapping(std::string filename) {
 
 bool NektarppXml::IsWallpoint(std::vector<double> &p, int &id) {
   for (id = 0; id < m_wallpoints.size(); id += 2) {
-    if (fabs(m_wallpoints[id][0] - p[0]) + fabs(m_wallpoints[id][1] - p[1]) <
+    double resz =
+        m_wallpoints[0].size() == 2 ? 0. : fabs(m_wallpoints[id][2] - p[2]);
+    if (fabs(m_wallpoints[id][0] - p[0]) + fabs(m_wallpoints[id][1] - p[1]) +
+            resz <
         m_tolerance) {
       return true;
     }
