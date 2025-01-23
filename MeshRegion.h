@@ -33,6 +33,7 @@ public:
   void GetElements(std::map<int, std::vector<int>> &elements);
   bool ReorgBoundary(double angle = 75. / 180. * 3.1415926);
   void CheckMesh(double angle = 75. / 180. * 3.1415926);
+  void OutGmsh(std::string name);
 
   double m_tolerance;
   std::string m_name;
@@ -66,6 +67,7 @@ public:
   };
   std::vector<char> ElementTag = {'H', 'R', 'A', 'P', 'Q', 'T', 'S', 'V'};
   std::vector<int> ElementSU2 = {12, 13, 10, 14, 9, 5, 3, 0};
+  std::vector<int> ElementGmsh = {5, 6, 4, 7, 3, 2, 1, 0};
   std::map<char, int> ElementTypeMap;
 
 protected:
@@ -83,6 +85,9 @@ protected:
   int FindSingularElements(double angle = 75. / 180. * 3.1415926);
   int FindSharedSingluarEdges(std::set<int> &bnd1, std::set<int> &bnd2,
                               int &shared, int &singular);
+  void OutGmshNodes(std::ofstream &file);
+  void OutGmshElements(std::ofstream &file);
+  double CheckDirection(std::vector<int> pts, int p1);
   std::vector<double> m_minRange;
   std::vector<double> m_maxRange;
   std::map<std::set<int>, int> m_edgesIndex;

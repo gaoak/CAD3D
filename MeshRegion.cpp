@@ -1,5 +1,6 @@
 #include "MeshRegion.h"
 #include "Util.h"
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
 #include <fstream>
@@ -527,6 +528,24 @@ void MeshRegion::GetCellEdges(int index, std::vector<int> &edges, char &type) {
   }
 }
 
+double MeshRegion::CheckDirection(std::vector<int> pts, int p1) {
+  std::vector<double> t1(3);
+  std::vector<double> t2(3);
+  for (int i = 0; i < 3; ++i) {
+    t1[i] = m_pts[pts[1]][i] - m_pts[pts[0]][i];
+    t2[i] = m_pts[pts[2]][i] - m_pts[pts[1]][i];
+  }
+  std::vector<double> norm(3);
+  norm[0] = t1[1] * t2[2] - t1[2] * t2[1];
+  norm[1] = t1[2] * t2[0] - t1[0] * t2[2];
+  norm[2] = t1[0] * t2[1] - t1[1] * t2[0];
+  double res = 0.;
+  for (int i = 0; i < 3; ++i) {
+    res += norm[i] * (m_pts[p1][i] - m_pts[pts[1]][i]);
+  }
+  return res;
+}
+
 void MeshRegion::GetCellPts(int index, std::vector<int> &pts, char &type) {
   pts.clear();
   type = 0;
@@ -550,6 +569,9 @@ void MeshRegion::GetCellPts(int index, std::vector<int> &pts, char &type) {
     GetFacePts(bot[0], pts, bottype);
     std::vector<int> p1;
     GetFacePts(bot[1], p1, bottype);
+    if (CheckDirection(pts, p1[0]) < 0.) {
+      std::reverse(pts.begin(), pts.end());
+    }
     for (int i = 0; i < p1.size(); ++i) {
       for (int j = 0; j < p1.size(); ++j) {
         std::set<int> es;
@@ -575,6 +597,9 @@ void MeshRegion::GetCellPts(int index, std::vector<int> &pts, char &type) {
     GetFacePts(bot[0], pts, bottype);
     std::vector<int> p1;
     GetFacePts(bot[1], p1, bottype);
+    if (CheckDirection(pts, p1[0]) < 0.) {
+      std::reverse(pts.begin(), pts.end());
+    }
     for (int i = 0; i < p1.size(); ++i) {
       int j = 0;
       for (; j < pts.size(); ++j) {
@@ -937,4 +962,41 @@ int MeshRegion::PointHash(std::vector<double> p) {
     dres = dres + nscatered * (p[i] - m_minRange[i]) / len;
   }
   return round(dres);
+}
+
+void MeshRegion::OutGmsh(std::string name) {
+  std::ofstream ofile(name);
+  ofile << "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n"; // fixed, real type is 8
+  OutGmshNodes(ofile);
+  OutGmshElements(ofile);
+}
+
+void MeshRegion::OutGmshNodes(std::ofstream &ofile) {
+  ofile << "$Nodes\n";
+  ofile << m_pts.size() << "\n";
+  for (const auto &it : m_pts) {
+    ofile << it.first << " " << it.second[0] << " " << it.second[1] << " "
+          << it.second[2] << "\n";
+  }
+  ofile << "$EndNodes\n";
+}
+
+void MeshRegion::OutGmshElements(std::ofstream &ofile) {
+  std::map<char, int> elmtype;
+  for (size_t i = 0; i < ElementTag.size(); ++i) {
+    elmtype[ElementTag[i]] = ElementGmsh[i];
+  }
+  ofile << "$Elements\n";
+  ofile << m_cells.size() << "\n";
+  for (auto it : m_cells) {
+    std::vector<int> pts;
+    char type;
+    GetCellPts(it.first, pts, type);
+    ofile << it.first << " " << elmtype[type] << " 2 0 0 ";
+    for (auto jt : pts) {
+      ofile << jt << " ";
+    }
+    ofile << '\n';
+  }
+  ofile << "$EndElements\n";
 }

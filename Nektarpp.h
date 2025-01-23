@@ -16,6 +16,7 @@ public:
   void UpdateXmlDomainExpansion();
   void LoadWallmapping(std::string filename);
   void DeformPts(void *func);
+  void RemapMesh(std::string name);
   tinyxml2::XMLDocument m_doc;
 
 protected:

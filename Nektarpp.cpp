@@ -107,6 +107,8 @@ void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz,
 
 void NektarppXml::LoadWallmapping(std::string filename) {
   std::ifstream ifile(filename.c_str());
+  if (!ifile.is_open())
+    return;
   int N, dim;
   ifile >> N >> dim;
   for (int i = 0; i < N; ++i) {
@@ -143,13 +145,27 @@ void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {
                             ->FirstChildElement();
   while (curvEle != nullptr) {
     int numbers = curvEle->IntAttribute("NUMPOINTS");
+    int eid = curvEle->IntAttribute("EDGEID");
     numbers *= 3;
     const char *cstr = curvEle->GetText();
     std::vector<double> values;
     parserDouble(cstr, values);
+    bool dir = fabs(values[0] - m_pts[m_edges[eid][0]][0]) +
+                   fabs(values[1] - m_pts[m_edges[eid][0]][1]) +
+                   fabs(values[2] - m_pts[m_edges[eid][0]][2]) <
+               m_tolerance;
     for (int i = 0; i < numbers; ++i) {
       if ((i + 1) % 3 == 0)
         values[i] = transformz(values[i], nlayers, targz);
+    }
+    if (!dir) {
+      std::vector<double> v2 = values;
+      for (int i = 0; i < numbers; i += 3) {
+        int j = numbers - i - 3;
+        values[j] = v2[i];
+        values[j + 1] = v2[i + 1];
+        values[j + 2] = v2[i + 2];
+      }
     }
     printVector<double>(buffer, "%26.18e ", values);
     curvEle->SetText(buffer);
@@ -434,4 +450,77 @@ void NektarppXml::UpdateXmlDomainExpansion() {
 void NektarppXml::OutXml(std::string name) {
   m_doc.SaveFile(name.c_str());
   std::cout << "write xml file " << name << std::endl;
+}
+
+void NektarppXml::RemapMesh(std::string sortedfile) {
+  std::vector<double> targz;
+  NektarppXml sorted(sortedfile, "sorted:", 1E-6);
+  sorted.LoadXml(1, targz, 0., 0., true, -1);
+  // get points index
+  std::map<int, int> ptsmap;
+  m_bndPts.clear();
+  for (auto it : m_pts) {
+    InsertBndPts(it.first);
+  }
+  for (auto it : sorted.m_pts) {
+    int pId;
+    if (PointIsExist(it.second, pId)) {
+      ptsmap[pId] = it.first;
+    } else {
+      char buffer[1000];
+      printVector<double>(buffer, "%20.12e ", it.second);
+      std::cout << "Gmsh point not found " << it.first << " " << buffer
+                << std::endl;
+    }
+  }
+  // update points
+  std::map<int, std::vector<double>> pts;
+  for (auto it : m_pts) {
+    pts[ptsmap[it.first]] = it.second;
+  }
+  m_pts = pts;
+  // get edgemap from m_edgesIndex
+  std::map<int, int> edgemap;
+  for (auto it : m_edges) {
+    std::set<int> pts;
+    pts.insert(ptsmap[it.second[0]]);
+    pts.insert(ptsmap[it.second[1]]);
+    edgemap[it.first] = sorted.m_edgesIndex[pts];
+  }
+  // update edge
+  m_edges = sorted.m_edges;
+  // get facemap from m_facesIndex
+  std::map<int, int> facemap;
+  for (auto it : m_faces) {
+    std::set<int> eds;
+    for (auto jt : it.second) {
+      eds.insert(edgemap[jt]);
+    }
+    facemap[it.first] = sorted.m_facesIndex[eds];
+  }
+  // update boundary composite
+  std::map<int, std::set<int>> bndComposite;
+  for (auto &comp : m_bndComposite) {
+    std::set<int> faces;
+    for (auto &it : comp.second) {
+      faces.insert(facemap[it]);
+    }
+    bndComposite[comp.first] = faces;
+  }
+  m_bndComposite = bndComposite;
+  // update faces
+  m_faces = sorted.m_faces;
+  // update cells
+  m_cells = sorted.m_cells;
+  // update domains
+  m_domain = sorted.m_domain;
+  m_domainType = sorted.m_domainType;
+  m_cellsType = sorted.m_cellsType;
+  m_ptsIndexMax = sorted.m_ptsIndexMax;
+  m_edgeIndexMax = sorted.m_edgeIndexMax;
+  m_faceIndexMax = sorted.m_faceIndexMax;
+  m_cellIndexMax = sorted.m_cellIndexMax;
+  RebuildEdgesIndex();
+  RebuildFacesIndex();
+  ExtractBndPts();
 }
