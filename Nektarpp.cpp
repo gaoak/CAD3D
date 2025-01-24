@@ -520,6 +520,7 @@ void NektarppXml::RemapMesh(std::string sortedfile) {
   m_edgeIndexMax = sorted.m_edgeIndexMax;
   m_faceIndexMax = sorted.m_faceIndexMax;
   m_cellIndexMax = sorted.m_cellIndexMax;
+  LoadModifyCurved(1, targz);
   RebuildEdgesIndex();
   RebuildFacesIndex();
   ExtractBndPts();
