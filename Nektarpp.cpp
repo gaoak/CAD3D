@@ -151,14 +151,14 @@ void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {
     const char *cstr = curvEle->GetText();
     std::vector<double> values;
     parserDouble(cstr, values);
-    bool dir = fabs(values[0] - m_pts[m_edges[eid][0]][0]) +
-                   fabs(values[1] - m_pts[m_edges[eid][0]][1]) +
-                   fabs(values[2] - m_pts[m_edges[eid][0]][2]) <
-               m_tolerance;
     for (int i = 0; i < numbers; ++i) {
       if ((i + 1) % 3 == 0)
         values[i] = transformz(values[i], nlayers, targz);
     }
+    bool dir = fabs(values[0] - m_pts[m_edges[eid][0]][0]) +
+                   fabs(values[1] - m_pts[m_edges[eid][0]][1]) +
+                   fabs(values[2] - m_pts[m_edges[eid][0]][2]) <
+               m_tolerance;
     if (!dir) {
       std::vector<double> v2 = values;
       for (int i = 0; i < numbers; i += 3) {
