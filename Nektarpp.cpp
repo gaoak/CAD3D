@@ -78,11 +78,12 @@ void NektarppXml::LoadModifyPts(int nlayers, std::vector<double> targz,
       if (mapping && round(p[2] * nlayers) != exclude) {
         p[0] = m_wallpoints[m_wallmapping[idw]][0];
         p[1] = m_wallpoints[m_wallmapping[idw]][1];
+        if (m_wallpoints[0].size() == 3) {
+          p[2] = m_wallpoints[m_wallmapping[idw]][2];
+        }
       }
       if (m_wallpoints[0].size() == 2) {
         p[2] = transformz(p[2], nlayers, targz, 0., 0.);
-      } else {
-        p[2] = m_wallpoints[m_wallmapping[idw]][2];
       }
     } else {
       p[2] = transformz(p[2], nlayers, targz, offset0, offset1);
