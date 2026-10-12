@@ -8,15 +8,27 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <iomanip>
+#include <sstream>
+#include <stdexcept>
 
 using namespace tinyxml2;
 
 static char buffer[10000];
 
+static std::string curvedText(const std::vector<double> &values) {
+  std::ostringstream text;
+  text << std::scientific << std::setprecision(17);
+  for (double value : values)
+    text << value << ' ';
+  return text.str();
+}
+
 NektarppXml::NektarppXml(std::string filename, std::string regionname,
                          double tolerance)
     : MeshRegion(regionname, tolerance) {
-  m_doc.LoadFile(filename.c_str());
+  if (m_doc.LoadFile(filename.c_str()) != XML_SUCCESS)
+    throw std::runtime_error("Cannot load " + filename + ": " + m_doc.ErrorStr());
   m_dim = 3;
   m_edgeTag = "EDGE";
   m_faceTag = "FACE";
@@ -140,10 +152,12 @@ bool NektarppXml::IsWallpoint(std::vector<double> &p, int &id) {
 }
 
 void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {
-  XMLElement *curvEle = m_doc.FirstChildElement("NEKTAR")
+  XMLElement *curves = m_doc.FirstChildElement("NEKTAR")
                             ->FirstChildElement("GEOMETRY")
-                            ->FirstChildElement("CURVED")
-                            ->FirstChildElement();
+                            ->FirstChildElement("CURVED");
+  if (!curves)
+    return;
+  XMLElement *curvEle = curves->FirstChildElement();
   while (curvEle != nullptr) {
     int numbers = curvEle->IntAttribute("NUMPOINTS");
     int eid = curvEle->IntAttribute("EDGEID");
@@ -151,11 +165,14 @@ void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {
     const char *cstr = curvEle->GetText();
     std::vector<double> values;
     parserDouble(cstr, values);
+    if (values.size() != static_cast<std::size_t>(numbers))
+      throw std::runtime_error("Invalid curved-edge/face point count");
     for (int i = 0; i < numbers; ++i) {
       if ((i + 1) % 3 == 0)
         values[i] = transformz(values[i], nlayers, targz);
     }
-    bool dir = fabs(values[0] - m_pts[m_edges[eid][0]][0]) +
+    bool dir = std::string(curvEle->Name()) != "E" ||
+               fabs(values[0] - m_pts[m_edges[eid][0]][0]) +
                    fabs(values[1] - m_pts[m_edges[eid][0]][1]) +
                    fabs(values[2] - m_pts[m_edges[eid][0]][2]) <
                m_tolerance;
@@ -168,8 +185,7 @@ void NektarppXml::LoadModifyCurved(int nlayers, std::vector<double> targz) {
         values[j + 2] = v2[i + 2];
       }
     }
-    printVector<double>(buffer, "%26.18e ", values);
-    curvEle->SetText(buffer);
+    curvEle->SetText(curvedText(values).c_str());
     curvEle = curvEle->NextSiblingElement();
   }
 }
@@ -183,12 +199,43 @@ void NektarppXml::DeformPts(void *func) {
   ExtractBndPts();
 }
 
+void NektarppXml::DeformPts(const std::function<void(double *)> &func) {
+  if (!func)
+    throw std::invalid_argument("Empty mesh deformation callback");
+  auto curves = m_doc.FirstChildElement("NEKTAR")
+                    ->FirstChildElement("GEOMETRY")->FirstChildElement("CURVED");
+  if (curves) {
+    for (auto node = curves->FirstChildElement(); node;
+         node = node->NextSiblingElement()) {
+      std::vector<double> values;
+      parserDouble(node->GetText(), values);
+      if (values.size() != 3 * node->UnsignedAttribute("NUMPOINTS"))
+        throw std::runtime_error("Invalid curved-edge/face point count");
+      for (std::size_t i = 0; i < values.size(); i += 3)
+        func(values.data() + i);
+      node->SetText(curvedText(values).c_str());
+    }
+  }
+  m_minRange.assign(3, 1E100);
+  m_maxRange.assign(3, -1E100);
+  for (auto &point : m_pts) {
+    func(point.second.data());
+    for (int i = 0; i < 3; ++i) {
+      m_minRange[i] = std::min(m_minRange[i], point.second[i]);
+      m_maxRange[i] = std::max(m_maxRange[i], point.second[i]);
+    }
+  }
+  ExtractBndPts();
+}
+
 void NektarppXml::LoadModifyCurved(void *func) {
   void (*mapfunc)(double *) = (void (*)(double *))func;
-  XMLElement *curvEle = m_doc.FirstChildElement("NEKTAR")
+  XMLElement *curves = m_doc.FirstChildElement("NEKTAR")
                             ->FirstChildElement("GEOMETRY")
-                            ->FirstChildElement("CURVED")
-                            ->FirstChildElement();
+                            ->FirstChildElement("CURVED");
+  if (!curves)
+    return;
+  XMLElement *curvEle = curves->FirstChildElement();
   while (curvEle != nullptr) {
     int numbers = curvEle->IntAttribute("NUMPOINTS");
     numbers *= 3;
@@ -199,8 +246,7 @@ void NektarppXml::LoadModifyCurved(void *func) {
       if (i % 3 == 0)
         mapfunc(&(values[i]));
     }
-    printVector<double>(buffer, "%26.18e ", values);
-    curvEle->SetText(buffer);
+    curvEle->SetText(curvedText(values).c_str());
     curvEle = curvEle->NextSiblingElement();
   }
 }
@@ -449,7 +495,8 @@ void NektarppXml::UpdateXmlDomainExpansion() {
 }
 
 void NektarppXml::OutXml(std::string name) {
-  m_doc.SaveFile(name.c_str());
+  if (m_doc.SaveFile(name.c_str()) != XML_SUCCESS)
+    throw std::runtime_error("Cannot write " + name + ": " + m_doc.ErrorStr());
   std::cout << "write xml file " << name << std::endl;
 }
 

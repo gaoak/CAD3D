@@ -2,6 +2,7 @@
 #define NEKTARPP_H
 #include "MeshRegion.h"
 #include "tinyxml2.h"
+#include <functional>
 #include <string>
 
 class NektarppXml : public MeshRegion {
@@ -16,6 +17,7 @@ public:
   void UpdateXmlDomainExpansion();
   void LoadWallmapping(std::string filename);
   void DeformPts(void *func);
+  void DeformPts(const std::function<void(double *)> &func);
   void RemapMesh(std::string name);
   tinyxml2::XMLDocument m_doc;
 
